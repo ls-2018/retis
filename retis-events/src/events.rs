@@ -163,7 +163,13 @@ impl EventFmt for Event {
         (SectionId::Skb.to_u8()..SectionId::_MAX.to_u8())
             .collect::<Vec<u8>>()
             .iter()
-            .filter_map(|id| self.0.get(&SectionId::from_u8(*id).unwrap()))
+            .filter_map(|id| {
+                let id = SectionId::from_u8(*id).unwrap();
+                match id.is_metadata() {
+                    true => None,
+                    false => self.0.get(&id),
+                }
+            })
             .try_for_each(|section| write!(f, "{sep}{}", section.display(format)))?;
 
         Ok(())
@@ -263,6 +269,11 @@ impl SectionId {
             Ct => CtEvent::SECTION_NAME,
             _MAX => "_max",
         }
+    }
+
+    /// Is the section a metadata one?
+    pub fn is_metadata(&self) -> bool {
+        false
     }
 }
 
