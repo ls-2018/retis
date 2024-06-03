@@ -2,6 +2,17 @@ use std::fmt;
 
 use crate::{event_section, event_type, *};
 
+#[event_section("md_common")]
+pub struct CommonEventMd {
+    pub retis_version: String,
+}
+
+impl EventFmt for CommonEventMd {
+    fn event_fmt(&self, f: &mut fmt::Formatter, _: DisplayFormat) -> fmt::Result {
+        write!(f, "Retis version {}", self.retis_version)
+    }
+}
+
 #[event_type]
 #[derive(Default)]
 pub struct TaskEvent {

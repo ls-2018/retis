@@ -189,8 +189,9 @@ pub enum SectionId {
     Ovs = 8,
     Nft = 9,
     Ct = 10,
+    MdCommon = 11,
     // TODO: use std::mem::variant_count once in stable.
-    _MAX = 11,
+    _MAX = 12,
 }
 
 impl FromStr for SectionId {
@@ -210,6 +211,7 @@ impl FromStr for SectionId {
             OvsEvent::SECTION_NAME => Ovs,
             NftEvent::SECTION_NAME => Nft,
             CtEvent::SECTION_NAME => Ct,
+            CommonEventMd::SECTION_NAME => MdCommon,
             x => bail!("Can't construct a SectionId from {}", x),
         })
     }
@@ -230,6 +232,7 @@ impl SectionId {
             8 => Ovs,
             9 => Nft,
             10 => Ct,
+            11 => MdCommon,
             x => bail!("Can't construct a SectionId from {}", x),
         })
     }
@@ -249,7 +252,8 @@ impl SectionId {
             Ovs => 8,
             Nft => 9,
             Ct => 10,
-            _MAX => 11,
+            MdCommon => 11,
+            _MAX => 12,
         }
     }
 
@@ -267,13 +271,14 @@ impl SectionId {
             Ovs => OvsEvent::SECTION_NAME,
             Nft => NftEvent::SECTION_NAME,
             Ct => CtEvent::SECTION_NAME,
+            MdCommon => CommonEventMd::SECTION_NAME,
             _MAX => "_max",
         }
     }
 
     /// Is the section a metadata one?
     pub fn is_metadata(&self) -> bool {
-        false
+        matches!(self, SectionId::MdCommon)
     }
 }
 
@@ -316,6 +321,9 @@ fn event_sections() -> Result<&'static EventSectionMap> {
         });
         events.insert(CtEvent::SECTION_NAME.to_string(), |v| {
             Ok(Box::new(serde_json::from_value::<CtEvent>(v)?))
+        });
+        events.insert(CommonEventMd::SECTION_NAME.to_string(), |v| {
+            Ok(Box::new(serde_json::from_value::<CommonEventMd>(v)?))
         });
         Ok(events)
     })

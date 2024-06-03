@@ -21,7 +21,7 @@ use crate::{
         kernel::Symbol,
         probe::kernel::utils::parse_probe,
     },
-    events::Event,
+    events::*,
     process::display::*,
 };
 
@@ -201,6 +201,16 @@ impl Collectors {
         if collect.args()?.allow_system_changes && !Uid::effective().is_root() {
             bail!("Retis needs to be run as root when --allow-system-changes is used");
         }
+
+        // Set common md event.
+        self.md_event.insert_section(
+            SectionId::MdCommon,
+            Box::new(CommonEventMd {
+                retis_version: option_env!("RELEASE_VERSION")
+                    .unwrap_or("unspec")
+                    .to_string(),
+            }),
+        )?;
 
         // Try initializing all collectors.
         for name in &collect.args()?.collectors {
