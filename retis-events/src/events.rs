@@ -122,13 +122,11 @@ impl Event {
 
 impl EventFmt for Event {
     fn event_fmt(&self, f: &mut std::fmt::Formatter, format: DisplayFormat) -> std::fmt::Result {
-        // First format the first event line starting with the always-there
-        // {common} section, followed by the {kernel} or {user} one.
-        write!(
-            f,
-            "{}",
-            self.0.get(&SectionId::Common).unwrap().display(format)
-        )?;
+        // First format the first event line starting with the {common} section,
+        // followed by the {kernel} or {user} one.
+        if let Some(common) = self.0.get(&SectionId::Common) {
+            write!(f, "{}", common.display(format))?;
+        }
         if let Some(kernel) = self.0.get(&SectionId::Kernel) {
             write!(f, " {}", kernel.display(format))?;
         } else if let Some(user) = self.0.get(&SectionId::Userspace) {
