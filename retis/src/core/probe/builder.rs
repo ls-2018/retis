@@ -2,7 +2,7 @@
 //!
 //! ProbeBuilder defines the ProbeBuider trait and some useful utility functions
 //!
-use std::os::fd::RawFd;
+use std::os::fd::{BorrowedFd, RawFd};
 
 use anyhow::{anyhow, Result};
 
@@ -38,7 +38,10 @@ pub(super) fn reuse_map_fds(
 ) -> Result<()> {
     for map in map_fds.iter() {
         if let Some(open_map) = open_obj.map(map.0.clone()) {
-            open_map.reuse_fd(map.1)?;
+            // Map fds are always valid (they come from libbpf-rs itself) and
+            // the map objects are not destroyed until the object is dropped so
+            // the fd remains valid here.
+            open_map.reuse_fd(unsafe { BorrowedFd::borrow_raw(map.1) })?;
         } else {
             // This object does not have this particular map.
             continue;
