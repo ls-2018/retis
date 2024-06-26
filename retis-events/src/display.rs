@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::TimeSpec;
+
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub enum DisplayFormatFlavor {
     SingleLine,
@@ -7,10 +9,19 @@ pub enum DisplayFormatFlavor {
     MultiLine,
 }
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
+pub enum TimeFormat {
+    #[default]
+    MonotonicTimestamp,
+    UtcDate,
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DisplayFormat {
     pub flavor: DisplayFormatFlavor,
+    pub time_format: TimeFormat,
     pub show_metadata: bool,
+    pub monotonic_offset: Option<TimeSpec>,
 }
 
 impl DisplayFormat {
@@ -23,6 +34,14 @@ impl DisplayFormat {
 
     pub fn show_metadata(&mut self) {
         self.show_metadata = true
+    }
+
+    pub fn set_time_format(&mut self, format: TimeFormat) {
+        self.time_format = format;
+    }
+
+    pub fn set_monotonic_offset(&mut self, offset: TimeSpec) {
+        self.monotonic_offset = Some(offset);
     }
 }
 
