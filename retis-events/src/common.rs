@@ -5,6 +5,8 @@ use crate::{event_section, event_type, *};
 #[event_section("md_common")]
 pub struct CommonEventMd {
     pub retis_version: String,
+    /// CLOCK_MONOTONIC offset in regards to local machine time.
+    pub clock_monotonic_offset: TimeSpec,
 }
 
 impl EventFmt for CommonEventMd {

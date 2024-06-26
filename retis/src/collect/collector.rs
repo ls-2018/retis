@@ -40,7 +40,7 @@ use crate::{
         tracking::{gc::TrackingGC, skb_tracking::init_tracking},
     },
     events::{EventResult, SectionId},
-    helpers::signals::Running,
+    helpers::{signals::Running, time::monotonic_clock_offset},
     module::Modules,
 };
 
@@ -209,6 +209,7 @@ impl Collectors {
                 retis_version: option_env!("RELEASE_VERSION")
                     .unwrap_or("unspec")
                     .to_string(),
+                clock_monotonic_offset: monotonic_clock_offset()?,
             }),
         )?;
 
