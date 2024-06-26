@@ -121,7 +121,7 @@ impl Event {
 }
 
 impl EventFmt for Event {
-    fn event_fmt(&self, f: &mut std::fmt::Formatter, format: DisplayFormat) -> std::fmt::Result {
+    fn event_fmt(&self, f: &mut std::fmt::Formatter, format: &DisplayFormat) -> std::fmt::Result {
         // First format the first event line starting with the {common} section,
         // followed by the {kernel} or {user} one.
         if let Some(common) = self.0.get(&SectionId::Common) {

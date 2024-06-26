@@ -29,7 +29,7 @@ impl PrintSingle {
                     format.set_monotonic_offset(common.clock_monotonic_offset);
                 }
 
-                let event = format!("{}", e.display(*format));
+                let event = format!("{}", e.display(format));
                 if !event.is_empty() {
                     self.writer.write_all(event.as_bytes())?;
                     match format.flavor {
@@ -91,7 +91,7 @@ impl PrintSeries {
                         format.set_monotonic_offset(common.clock_monotonic_offset);
                     }
 
-                    content.push_str(&Self::indent(indent, format!("{}", event.display(*format))));
+                    content.push_str(&Self::indent(indent, format!("{}", event.display(format))));
                     if !content.is_empty() {
                         content.push('\n');
                         indent = 2;
