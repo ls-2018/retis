@@ -10,13 +10,20 @@ pub enum DisplayFormatFlavor {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DisplayFormat {
     pub flavor: DisplayFormatFlavor,
+    pub show_metadata: bool,
 }
 
 impl DisplayFormat {
     pub fn new(flavor: DisplayFormatFlavor) -> Self {
-        Self { flavor }
+        Self {
+            flavor,
+            ..Default::default()
+        }
     }
 
+    pub fn show_metadata(&mut self) {
+        self.show_metadata = true
+    }
 }
 
 /// Trait controlling how an event or an event section (or any custom type
