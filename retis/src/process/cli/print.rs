@@ -26,6 +26,9 @@ pub(crate) struct Print {
     #[arg(long, help = "Format used when printing an event.")]
     #[clap(value_enum, default_value_t=CliDisplayFormatFlavor::MultiLine)]
     pub(super) format: CliDisplayFormatFlavor,
+    #[arg(long, help = "Time format used when printing an event.")]
+    #[clap(value_enum, default_value_t=CliTimeFormat::MonotonicTimestamp)]
+    pub(super) time_format: CliTimeFormat,
 }
 
 impl SubCommandParserRunner for Print {
@@ -37,11 +40,12 @@ impl SubCommandParserRunner for Print {
         // Create event factory.
         let mut factory = FileEventsFactory::new(self.input.as_path())?;
 
+        // Format.
+        let mut format = DisplayFormat::new(self.format.into());
+        format.set_time_format(self.time_format.into());
+
         // Formatter & printer for events.
-        let mut output = PrintSingle::new(
-            Box::new(stdout()),
-            PrintSingleFormat::Text(DisplayFormat::new(self.format.into())),
-        );
+        let mut output = PrintSingle::new(Box::new(stdout()), PrintSingleFormat::Text(format));
 
         use EventResult::*;
         while run.running() {
