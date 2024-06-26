@@ -28,9 +28,9 @@ impl PrintSingle {
                 let event = format!("{}", e.display(format));
                 if !event.is_empty() {
                     self.writer.write_all(event.as_bytes())?;
-                    match format {
-                        DisplayFormat::SingleLine => self.writer.write_all(b"\n")?,
-                        DisplayFormat::MultiLine => self.writer.write_all(b"\n\n")?,
+                    match format.flavor {
+                        DisplayFormatFlavor::SingleLine => self.writer.write_all(b"\n")?,
+                        DisplayFormatFlavor::MultiLine => self.writer.write_all(b"\n\n")?,
                     }
                 }
             }

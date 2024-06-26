@@ -147,16 +147,16 @@ impl EventFmt for Event {
         // If we have a stack trace, show it.
         if let Some(kernel) = self.get_section::<KernelEvent>(SectionId::Kernel) {
             if let Some(stack) = &kernel.stack_trace {
-                match format {
-                    DisplayFormat::SingleLine => write!(f, " {}", stack.display(format))?,
-                    DisplayFormat::MultiLine => write!(f, "\n{}", stack.display(format))?,
+                match format.flavor {
+                    DisplayFormatFlavor::SingleLine => write!(f, " {}", stack.display(format))?,
+                    DisplayFormatFlavor::MultiLine => write!(f, "\n{}", stack.display(format))?,
                 }
             }
         }
 
-        let sep = match format {
-            DisplayFormat::SingleLine => " ",
-            DisplayFormat::MultiLine => "\n  ",
+        let sep = match format.flavor {
+            DisplayFormatFlavor::SingleLine => " ",
+            DisplayFormatFlavor::MultiLine => "\n  ",
         };
 
         // Finally show all sections.

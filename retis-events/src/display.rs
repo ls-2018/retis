@@ -1,10 +1,22 @@
 use std::fmt;
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
-pub enum DisplayFormat {
+pub enum DisplayFormatFlavor {
     SingleLine,
     #[default]
     MultiLine,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DisplayFormat {
+    pub flavor: DisplayFormatFlavor,
+}
+
+impl DisplayFormat {
+    pub fn new(flavor: DisplayFormatFlavor) -> Self {
+        Self { flavor }
+    }
+
 }
 
 /// Trait controlling how an event or an event section (or any custom type

@@ -54,8 +54,8 @@ pub(crate) struct Sort {
 
     /// Format used when printing and event.
     #[arg(long)]
-    #[clap(value_enum, default_value_t=CliDisplayFormat::MultiLine)]
-    pub(super) format: CliDisplayFormat,
+    #[clap(value_enum, default_value_t=CliDisplayFormatFlavor::MultiLine)]
+    pub(super) format: CliDisplayFormatFlavor,
 }
 
 impl SubCommandParserRunner for Sort {
@@ -101,7 +101,7 @@ impl SubCommandParserRunner for Sort {
         if self.out.is_none() || self.print {
             printers.push(PrintSeries::new(
                 Box::new(stdout()),
-                PrintSingleFormat::Text(self.format.into()),
+                PrintSingleFormat::Text(DisplayFormat::new(self.format.into())),
             ));
         }
 

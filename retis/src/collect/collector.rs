@@ -422,7 +422,7 @@ impl Collectors {
         if collect.out.is_none() || collect.print {
             printers.push(PrintSingle::new(
                 Box::new(io::stdout()),
-                PrintSingleFormat::Text(collect.format.into()),
+                PrintSingleFormat::Text(DisplayFormat::new(collect.format.into())),
             ));
         }
 
