@@ -121,43 +121,51 @@ impl Event {
 }
 
 impl EventFmt for Event {
-    fn event_fmt(&self, f: &mut std::fmt::Formatter, format: &DisplayFormat) -> std::fmt::Result {
+    fn event_fmt(&self, f: &mut Formatter, format: &DisplayFormat) -> std::fmt::Result {
         // First format the first event line starting with the {common} section,
         // followed by the {kernel} or {user} one.
         if let Some(common) = self.0.get(&SectionId::Common) {
-            write!(f, "{}", common.display(format))?;
+            common.event_fmt(f, format)?;
         }
         if let Some(kernel) = self.0.get(&SectionId::Kernel) {
-            write!(f, " {}", kernel.display(format))?;
+            write!(f, " ")?;
+            kernel.event_fmt(f, format)?;
         } else if let Some(user) = self.0.get(&SectionId::Userspace) {
-            write!(f, " {}", user.display(format))?;
+            write!(f, " ")?;
+            user.event_fmt(f, format)?;
         }
 
         // If we do have tracking and/or drop sections, put them there too.
         // Special case the global tracking information from here for now.
         if let Some(tracking) = self.0.get(&SectionId::Tracking) {
-            write!(f, " {}", tracking.display(format))?;
+            write!(f, " ")?;
+            tracking.event_fmt(f, format)?;
         } else if let Some(skb_tracking) = self.0.get(&SectionId::SkbTracking) {
-            write!(f, " {}", skb_tracking.display(format))?;
+            write!(f, " ")?;
+            skb_tracking.event_fmt(f, format)?;
         }
         if let Some(skb_drop) = self.0.get(&SectionId::SkbDrop) {
-            write!(f, " {}", skb_drop.display(format))?;
+            write!(f, " ")?;
+            skb_drop.event_fmt(f, format)?;
         }
+
+        // Separator between each following sections.
+        let sep = match format.flavor {
+            DisplayFormatFlavor::SingleLine => ' ',
+            DisplayFormatFlavor::MultiLine => '\n',
+        };
 
         // If we have a stack trace, show it.
         if let Some(kernel) = self.get_section::<KernelEvent>(SectionId::Kernel) {
             if let Some(stack) = &kernel.stack_trace {
-                match format.flavor {
-                    DisplayFormatFlavor::SingleLine => write!(f, " {}", stack.display(format))?,
-                    DisplayFormatFlavor::MultiLine => write!(f, "\n{}", stack.display(format))?,
-                }
+                f.conf.inc_level(4);
+                write!(f, "{sep}")?;
+                stack.event_fmt(f, format)?;
+                f.conf.reset_level();
             }
         }
 
-        let sep = match format.flavor {
-            DisplayFormatFlavor::SingleLine => " ",
-            DisplayFormatFlavor::MultiLine => "\n  ",
-        };
+        f.conf.inc_level(2);
 
         // Finally show all sections.
         (SectionId::Skb.to_u8()..SectionId::_MAX.to_u8())
@@ -170,8 +178,12 @@ impl EventFmt for Event {
                     false => self.0.get(&id),
                 }
             })
-            .try_for_each(|section| write!(f, "{sep}{}", section.display(format)))?;
+            .try_for_each(|section| {
+                write!(f, "{sep}")?;
+                section.event_fmt(f, format)
+            })?;
 
+        f.conf.reset_level();
         Ok(())
     }
 }

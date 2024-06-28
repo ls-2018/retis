@@ -1,4 +1,9 @@
-use std::fmt;
+use std::{
+    fmt::{self, Write},
+    result,
+};
+
+use log::warn;
 
 use super::TimeSpec;
 
@@ -45,6 +50,128 @@ impl DisplayFormat {
     }
 }
 
+/// `Formatter` implements `std::fmt::Write` and controls how events are being
+/// displayed. The main advantage is formatting is done on the fly without the
+/// need for extra String allocations. This is similar to `std::fmt::Formatter`
+/// but with our own constraints.
+///
+/// It supports the following capabilities: indentation, itemization and
+/// delimitation. Each of those are always context-based: the capabilities and
+/// their configuration can change over time and might end based on input (eg.
+/// delimitation).
+pub struct Formatter<'a, 'inner> {
+    inner: &'a mut fmt::Formatter<'inner>,
+    pub conf: FormatterConf,
+    level: usize,
+    start: bool,
+    buf: String,
+}
+
+impl<'a, 'inner> Formatter<'a, 'inner> {
+    fn new(inner: &'a mut fmt::Formatter<'inner>, conf: FormatterConf) -> Formatter<'a, 'inner> {
+        let level = conf.level;
+
+        Self {
+            inner,
+            conf,
+            level,
+            start: true,
+            buf: String::with_capacity(4096usize),
+        }
+    }
+
+    /// Directly implement write_fmt to avoid the need of an explicit
+    /// `use fmt::Write` by every user. See the `std::write` documentation.
+    #[inline]
+    pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> result::Result<(), fmt::Error> {
+        <Self as fmt::Write>::write_fmt(self, args)
+    }
+
+    pub fn flush_buf(&mut self) -> result::Result<(), fmt::Error> {
+        let mut lines = self.buf.split('\n');
+        let prefix = " ".repeat(self.level);
+
+        if let Some(line) = lines.next() {
+            if self.start {
+                self.start = false;
+                self.inner.write_str(&prefix)?;
+            }
+            self.inner.write_str(line)?;
+        }
+
+        lines.try_for_each(|line| {
+            self.inner.write_char('\n')?;
+            self.inner.write_str(&prefix)?;
+            self.inner.write_str(line)
+        })?;
+
+        if self.buf.ends_with('\n') {
+            self.inner.write_char('\n')?;
+            self.start = true;
+        }
+
+        self.buf.clear();
+        Ok(())
+    }
+}
+
+impl fmt::Write for Formatter<'_, '_> {
+    fn write_str(&mut self, s: &str) -> result::Result<(), fmt::Error> {
+        if self.conf.level != self.level {
+            if !self.buf.is_empty() {
+                self.flush_buf()?;
+            }
+            self.level = self.conf.level;
+        }
+
+        self.buf.push_str(s);
+        Ok(())
+    }
+}
+
+impl Drop for Formatter<'_, '_> {
+    fn drop(&mut self) {
+        if !self.buf.is_empty() {
+            self.flush_buf().expect("Could not flush Formatter buffer");
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct FormatterConf {
+    level: usize,
+    saved_levels: Vec<usize>,
+}
+
+impl FormatterConf {
+    pub fn new() -> Self {
+        Self::with_level(0)
+    }
+
+    pub fn with_level(level: usize) -> Self {
+        Self {
+            level,
+            ..Default::default()
+        }
+    }
+
+    /// Increase the indentation level by `diff`.
+    pub fn inc_level(&mut self, diff: usize) {
+        self.saved_levels.push(self.level);
+        self.level += diff;
+    }
+
+    /// Reset the indentation level to its previous value.
+    pub fn reset_level(&mut self) {
+        match self.saved_levels.pop() {
+            Some(level) => {
+                self.level = level;
+            }
+            None => warn!("Cannot reset the indentation level"),
+        }
+    }
+}
+
 /// Trait controlling how an event or an event section (or any custom type
 /// inside it) is displayed. It works by providing an helper returning an
 /// implementation of the std::fmt::Display trait, which can be used later to
@@ -52,7 +179,11 @@ impl DisplayFormat {
 /// arguments, unlike a plain std::fmt::Display implementation.
 pub trait EventDisplay<'a>: EventFmt {
     /// Display the event using the default event format.
-    fn display(&'a self, format: &'a DisplayFormat) -> Box<dyn fmt::Display + 'a>;
+    fn display(
+        &'a self,
+        format: &'a DisplayFormat,
+        conf: FormatterConf,
+    ) -> Box<dyn fmt::Display + 'a>;
 }
 
 /// Trait controlling how an event or an event section (or any custom type
@@ -64,26 +195,33 @@ pub trait EventDisplay<'a>: EventFmt {
 /// members if any.
 pub trait EventFmt {
     /// Default formatting of an event.
-    fn event_fmt(&self, f: &mut fmt::Formatter, format: &DisplayFormat) -> fmt::Result;
+    fn event_fmt(&self, f: &mut Formatter, format: &DisplayFormat) -> fmt::Result;
 }
 
 impl<'a, T> EventDisplay<'a> for T
 where
     T: EventFmt,
 {
-    fn display(&'a self, format: &'a DisplayFormat) -> Box<dyn fmt::Display + 'a> {
+    fn display(
+        &'a self,
+        format: &'a DisplayFormat,
+        conf: FormatterConf,
+    ) -> Box<dyn fmt::Display + 'a> {
         struct DefaultDisplay<'a, U> {
             myself: &'a U,
             format: &'a DisplayFormat,
+            conf: FormatterConf,
         }
         impl<U: EventFmt> fmt::Display for DefaultDisplay<'_, U> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                self.myself.event_fmt(f, self.format)
+                self.myself
+                    .event_fmt(&mut Formatter::new(f, self.conf.clone()), self.format)
             }
         }
         Box::new(DefaultDisplay {
             myself: self,
             format,
+            conf,
         })
     }
 }
@@ -129,7 +267,7 @@ impl DelimWriter {
     }
 
     /// If it's not the first time it's called, write the delimiter.
-    pub fn write(&mut self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub fn write(&mut self, f: &mut Formatter) -> fmt::Result {
         match self.first {
             true => self.first = false,
             false => write!(f, "{}", self.delim)?,
