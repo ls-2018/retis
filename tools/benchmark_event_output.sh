@@ -1,6 +1,6 @@
 #!/bin/bash
 
-make bench V=1
+#make bench V=1
 
 time_single_single=0
 time_single_multi=0
@@ -9,7 +9,7 @@ time_series_single=0
 time_series_multi=0
 time_series_json=0
 
-iterations=20
+iterations=3
 
 for i in $(seq 1 $iterations); do
 	elapsed=($(./target/release/retis benchmark events_output | cut -d' ' -f2 | tr '\n' ' '))
