@@ -14,6 +14,7 @@ use super::{bpf::*, nft_hook};
 use crate::{
     bindings::nft_uapi::nft_config,
     cli::{dynamic::DynamicCommand, CliConfig},
+    collect::collector::Module,
     collect::{cli::Collect, Collector},
     core::{
         events::*,
@@ -22,7 +23,6 @@ use crate::{
         probe::{Hook, Probe, ProbeBuilderManager},
     },
     events::*,
-    module::Module,
 };
 
 static NFT_BIN: &str = "nft";

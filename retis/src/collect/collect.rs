@@ -17,6 +17,7 @@ use nix::{errno::Errno, mount::*, unistd::Uid};
 use super::cli::Collect;
 use crate::{
     cli::{dynamic::DynamicCommand, CliConfig, CliDisplayFormat, FullCli, SubCommandRunner},
+    collect::collector::{ModuleId, Modules},
     core::{
         events::{BpfEventsFactory, EventResult, RetisEventsFactory},
         filters::{
@@ -34,7 +35,6 @@ use crate::{
     },
     events::*,
     helpers::{signals::Running, time::*},
-    module::{ModuleId, Modules},
     process::display::*,
 };
 
@@ -581,9 +581,9 @@ impl SubCommandRunner for CollectRunner {
 mod tests {
     use super::*;
     use crate::{
+        collect::collector::Module,
         core::{events::bpf::*, probe::ProbeBuilderManager},
         event_section_factory,
-        module::Module,
     };
 
     struct DummyCollectorA;
