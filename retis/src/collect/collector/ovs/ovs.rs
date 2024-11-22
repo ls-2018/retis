@@ -9,7 +9,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use clap::{arg, Parser};
 
-use super::{bpf::OvsEventFactory, hooks};
+use super::hooks;
 use crate::{
     bindings::{
         ovs_common_uapi::{execute_actions_ctx, upcall_context},
@@ -144,9 +144,6 @@ impl Collector for OvsModule {
 impl Module for OvsModule {
     fn collector(&mut self) -> &mut dyn Collector {
         self
-    }
-    fn section_factory(&self) -> Result<Option<Box<dyn EventSectionFactory>>> {
-        Ok(Some(Box::new(OvsEventFactory {})))
     }
 }
 
