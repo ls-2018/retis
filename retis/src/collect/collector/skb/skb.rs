@@ -24,16 +24,15 @@ pub(crate) struct SkbCollectorArgs {
     #[arg(
         long,
         value_parser=PossibleValuesParser::new([
-            "all", "eth", "vlan", "dev", "ns", "meta", "dataref", "gso",
+            "all", "vlan", "dev", "ns", "meta", "dataref", "gso",
             // Below values are deprecated.
-            "arp", "ip", "tcp", "udp", "icmp", "packet",
+            "eth", "arp", "ip", "tcp", "udp", "icmp", "packet",
         ]),
         value_delimiter=',',
         default_value="dev",
         help = "Comma separated list of extra information to collect from skbs.
 
 Supported values:
-- eth:     include Ethernet information (src, dst, etype).
 - vlan:    include 802.1Q VLAN information (id, pcp, dei, acceleration)
 - dev:     include network device information.
 - ns:      include network namespace information.
@@ -43,7 +42,7 @@ Supported values:
 - all:     all of the above.
 
 The following values are now always retrieved and their use is deprecated:
-packet, arp, ip, tcp, udp, icmp."
+packet, eth, arp, ip, tcp, udp, icmp."
     )]
     pub(crate) skb_sections: Vec<String>,
 }
@@ -83,8 +82,7 @@ impl Collector for SkbCollector {
                 "meta" => sections |= 1 << SECTION_META,
                 "dataref" => sections |= 1 << SECTION_DATA_REF,
                 "gso" => sections |= 1 << SECTION_GSO,
-                "eth" => (),
-                "packet" | "arp" | "ip" | "tcp" | "udp" | "icmp" => {
+                "packet" | "arp" | "ip" | "tcp" | "udp" | "icmp" | "eth" => {
                     warn!(
                         "Use of '{}' in --skb-sections is depreacted (is now always set)",
                         category.as_str(),
