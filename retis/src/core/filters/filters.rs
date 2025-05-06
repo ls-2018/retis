@@ -28,15 +28,6 @@ pub(crate) enum Filter {
     Meta(FilterMeta),
 }
 
-static FM: Lazy<Mutex<HashMap<u32, Filter>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-
-pub(crate) fn register_filter(r#type: u32, filter: &Filter) -> Result<()> {
-    if FM.lock().unwrap().insert(r#type, filter.clone()).is_some() {
-        bail!("Filter (k: {}) already registered", r#type);
-    }
-    Ok(())
-}
-
 pub(crate) fn get_filter(r#type: u32) -> Option<Filter> {
     FM.lock().unwrap().get(&r#type).cloned()
 }
@@ -225,4 +216,13 @@ pub(crate) unsafe extern "C" fn fixup_filter_load_fn(
     }
 
     0
+}
+
+static FM: Lazy<Mutex<HashMap<u32, Filter>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+pub(crate) fn register_filter(r#type: u32, filter: &Filter) -> Result<()> {
+    if FM.lock().unwrap().insert(r#type, filter.clone()).is_some() {
+        bail!("Filter (k: {}) already registered", r#type);
+    }
+    Ok(())
 }

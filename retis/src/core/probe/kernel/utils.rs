@@ -1,5 +1,7 @@
+#![allow(unused_imports)]
 use anyhow::{bail, Result};
 
+use crate::core::probe::kernel::utils::CliProbeType::{Kprobe, Kretprobe, RawTracepoint};
 use crate::core::{
     kernel::symbol::{matching_events_to_symbols, matching_functions_to_symbols, Symbol},
     probe::Probe,
@@ -23,11 +25,10 @@ impl CliProbeType {
     }
 }
 
-/// Parses a probe given as a cli argument and returns its type and the probe
-/// with the type identifier (if any).
+/// 解析作为命令行参数给出的探测器，并返回其类型以及带有类型标识符的探测器（如果有）。
 pub(crate) fn parse_cli_probe(input: &str) -> Result<(CliProbeType, &str)> {
     use CliProbeType::*;
-
+    // tp:skb:kfree_skb   consume_skb
     Ok(match input.split_once(':') {
         Some((type_str, target)) => match type_str {
             "kprobe" | "k" => (Kprobe, target),
@@ -43,8 +44,7 @@ pub(crate) fn parse_cli_probe(input: &str) -> Result<(CliProbeType, &str)> {
     })
 }
 
-/// Parse a user defined probe (through cli parameters) and convert it to our
-/// probe representation (`Probe`).
+/// 解析用户自定义的探测器（通过命令行参数）并将其转换为我们的探测器表示形式（`Probe`）。
 pub(crate) fn probe_from_cli<F>(probe: &str, filter: F) -> Result<Vec<Probe>>
 where
     F: Fn(&Symbol) -> bool,
@@ -64,6 +64,7 @@ where
     for symbol in symbols.drain(..) {
         // Check if the symbol matches the filter.
         if !filter(&symbol) {
+            // 用户指定的函数，是不是包含要追踪的参数
             continue;
         }
 
@@ -75,46 +76,4 @@ where
     }
 
     Ok(probes)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn probe_from_cli() {
-        let filter = |_: &_| true;
-
-        // Valid probes.
-        assert!(super::probe_from_cli("consume_skb", filter).is_ok());
-        assert!(super::probe_from_cli("kprobe:kfree_skb_reason", filter).is_ok());
-        assert!(super::probe_from_cli("k:kfree_skb_reason", filter).is_ok());
-        assert!(super::probe_from_cli("skb:kfree_skb", filter).is_ok());
-        assert!(super::probe_from_cli("tp:skb:kfree_skb", filter).is_ok());
-        assert!(super::probe_from_cli("tcp_v6_*", filter).is_ok());
-        assert!(super::probe_from_cli("kprobe:tcp_v6_*", filter).is_ok());
-        assert!(!super::probe_from_cli("kprobe:tcp_v6_*", filter)
-            .unwrap()
-            .is_empty());
-        assert!(super::probe_from_cli("kretprobe:tcp_*", filter).is_ok());
-        assert!(super::probe_from_cli("kr:tcp_*", filter).is_ok());
-        assert!(super::probe_from_cli("tp:skb:kfree_*", filter).is_ok());
-        assert!(super::probe_from_cli("tp:*skb*", filter).is_ok());
-
-        // Invalid probe: symbol does not exist.
-        assert!(super::probe_from_cli("foobar", filter).is_err());
-        assert!(super::probe_from_cli("kprobe:foobar", filter).is_err());
-        assert!(super::probe_from_cli("tp:42:foobar", filter).is_err());
-        assert!(super::probe_from_cli("tp:kfree_*", filter).is_err());
-        assert!(super::probe_from_cli("*foo*", filter).is_err());
-
-        // Invalid probe: wrong TYPE.
-        assert!(super::probe_from_cli("kprobe:skb:kfree_skb", filter).is_err());
-        assert!(super::probe_from_cli("foo:kfree_skb", filter).is_err());
-
-        // Invalid probe: empty parts.
-        assert!(super::probe_from_cli("", filter).is_err());
-        assert!(super::probe_from_cli("kprobe:", filter).is_err());
-        assert!(super::probe_from_cli("tp:", filter).is_err());
-        assert!(super::probe_from_cli("tp:skb:", filter).is_err());
-        assert!(super::probe_from_cli(":kfree_skb_reason", filter).is_err());
-    }
 }

@@ -45,7 +45,7 @@ impl Collector for SkbDropCollector {
         // reason, so check this and handle it nicely.
         match inspector
             .kernel
-            .parameter_offset(&symbol, "enum skb_drop_reason")
+            .parameter_offset(&symbol, "enum skb_drop_reason") // vmlinux
         {
             Err(_) | Ok(None) => {
                 let kver = inspector.kernel.version();
@@ -55,9 +55,9 @@ impl Collector for SkbDropCollector {
                 // older kernel, still allow the collector to run, with a
                 // warning.
                 if KernelVersionReq::parse(">= 5.17")?.matches(kver) {
-                    bail!("Could not retrieve skb drop reasons from the kernel");
+                    bail!("无法从内核中获取 skb 被丢弃的原因");
                 } else {
-                    warn!("This kernel doesn't provide skb drop reasons");
+                    warn!("此内核不提供 sk_buff 被丢弃的原因信息。");
                     self.reasons_available = false;
                 }
             }

@@ -56,22 +56,14 @@ pub(crate) struct SkbCollector {
 }
 
 impl Collector for SkbCollector {
-    fn new() -> Result<Self> {
-        Ok(Self::default())
-    }
-
-    fn known_kernel_types(&self) -> Option<Vec<&'static str>> {
-        Some(vec!["struct sk_buff *"])
-    }
-
     fn init(
+        // ✅✅✅✅✅✅
         &mut self,
         args: &Collect,
         probes: &mut ProbeBuilderManager,
         _: Arc<RetisEventsFactory>,
     ) -> Result<()> {
-        // Default list of sections. We set SECTION_PACKET even though it's not
-        // checked in the BPF hook (raw packet is always reported).
+        //
         let mut sections: u64 = 1 << SECTION_PACKET;
 
         for category in args.collector_args.skb.skb_sections.iter() {
@@ -113,6 +105,14 @@ impl Collector for SkbCollector {
 
         self.config_map = Some(config_map);
         Ok(())
+    }
+
+    fn new() -> Result<Self> {
+        Ok(Self::default())
+    }
+
+    fn known_kernel_types(&self) -> Option<Vec<&'static str>> {
+        Some(vec!["struct sk_buff *"])
     }
 }
 

@@ -19,12 +19,6 @@ unsafe impl Send for RetisEventsFactory {}
 unsafe impl Sync for RetisEventsFactory {}
 
 impl RetisEventsFactory {
-    /// Retrieve the next event, if any. Returns None if no event is currently
-    /// available.
-    pub(crate) fn next_event(&self) -> Option<Event> {
-        self.queue.lock().unwrap().pop_front()
-    }
-
     /// Add a new event. The provided closure accepts an event whose
     /// `SectionId::Common` section has already been initialized and is expected
     /// to add additional sections to it.
@@ -44,5 +38,12 @@ impl RetisEventsFactory {
         f(&mut event)?;
         self.queue.lock().unwrap().push_front(event);
         Ok(())
+    }
+
+    /// Retrieve the next event, if any. Returns None if no event is currently
+    /// available.
+    pub(crate) fn next_event(&self) -> Option<Event> {
+        // ✅
+        self.queue.lock().unwrap().pop_front()
     }
 }

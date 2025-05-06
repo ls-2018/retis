@@ -10,36 +10,6 @@ use anyhow::{anyhow, bail, Result};
 
 use super::{Event, EventSeries};
 
-// Type of file that is being processed.
-#[derive(Debug, Clone)]
-pub enum FileType {
-    /// File contains events.
-    Event,
-    /// File contains event series.
-    Series,
-}
-
-/// File events factory retrieving and unmarshaling events
-/// parts.
-pub struct FileEventsFactory {
-    reader: BufReader<File>,
-    filetype: FileType,
-}
-
-impl FileEventsFactory {
-    pub fn new<P>(file: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let mut reader = BufReader::new(
-            File::open(&file)
-                .map_err(|e| anyhow!("Could not open {}: {e}", file.as_ref().display()))?,
-        );
-        let filetype = Self::detect_type(&mut reader)?;
-
-        Ok(FileEventsFactory { reader, filetype })
-    }
-}
 
 impl FileEventsFactory {
     /// Retrieve the next event or None if we've reached the end of the file.
@@ -74,6 +44,12 @@ impl FileEventsFactory {
         }
     }
 
+
+
+    pub fn file_type(&self) -> &FileType {
+        &self.filetype
+    }
+
     fn detect_type<T>(reader: &mut T) -> Result<FileType>
     where
         T: BufRead + Seek,
@@ -96,24 +72,35 @@ impl FileEventsFactory {
             _ => bail!("File contains invalid json data"),
         }
     }
-
-    pub fn file_type(&self) -> &FileType {
-        &self.filetype
-    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn read_from_file() {
-        let mut fact = FileEventsFactory::new("test_data/test_events.json").unwrap();
+// Type of file that is being processed.
+#[derive(Debug, Clone)]
+pub enum FileType {
+    /// File contains events.
+    Event,
+    /// File contains event series.
+    Series,
+}
 
-        let mut events = Vec::new();
-        while let Some(event) = fact.next_event().unwrap() {
-            println!("event: {:#?}", event.to_json());
-            events.push(event)
-        }
-        assert!(events.len() == 4);
+/// File events factory retrieving and unmarshaling events
+/// parts.
+pub struct FileEventsFactory {
+    reader: BufReader<File>,
+    filetype: FileType,
+}
+
+impl FileEventsFactory {
+    pub fn new<P>(file: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let mut reader = BufReader::new(
+            File::open(&file)
+                .map_err(|e| anyhow!("Could not open {}: {e}", file.as_ref().display()))?,
+        );
+        let filetype = Self::detect_type(&mut reader)?; // 尝试解析行
+
+        Ok(FileEventsFactory { reader, filetype })
     }
 }

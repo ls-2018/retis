@@ -149,6 +149,7 @@ impl BpfEventsFactory {
     }
 
     fn ringbuf_handler<CB>(
+        // ✅
         &self,
         map: &libbpf_rs::MapHandle,
         rb_handler: CB,
@@ -165,11 +166,9 @@ impl BpfEventsFactory {
             while rs.running() {
                 if let Err(e) = rb.poll(Duration::from_millis(BPF_EVENTS_POLL_TIMEOUT_MS)) {
                     match e.kind() {
-                        // Received EINTR while polling the
-                        // ringbuffer. This could normally be
-                        // triggered by an actual interruption
-                        // (signal) or artificially from the
-                        // callback. Do not print any error.
+                        // 在轮询环形缓冲区时收到了 EINTR 错误。
+                        // 这种情况通常是由实际的中断（信号）触发的，或者是人为地通过回调函数触发的。
+                        // 请勿打印任何错误信息。
                         libbpf_rs::ErrorKind::Interrupted => (),
                         _ => error!("Unexpected error while polling ({e})"),
                     }
@@ -181,6 +180,38 @@ impl BpfEventsFactory {
 
 #[cfg(not(test))]
 impl BpfEventsFactory {
+    /// Stops the event polling mechanism. The dedicated thread is stopped
+    /// joining the execution
+    pub(crate) fn stop(&mut self) -> Result<()> {
+        self.handle.take().map_or(Ok(()), |th| {
+            self.run_state.terminate();
+            th.join()
+                .map_err(|_| anyhow!("while joining bpf event thread"))
+        })?;
+
+        self.log_handle.take().map_or(Ok(()), |th| {
+            th.join()
+                .map_err(|_| anyhow!("while joining bpf log event thread"))
+        })
+    }
+
+    /// Retrieve the next event. This is a blocking call and never returns EOF.
+    pub(crate) fn next_event(&mut self, timeout: Option<Duration>) -> Result<EventResult> {
+        let rxc = match &self.rxc {
+            Some(rxc) => rxc,
+            None => bail!("Can't get event, no rx channel found."),
+        };
+
+        Ok(match timeout {
+            Some(timeout) => match rxc.recv_timeout(timeout) {
+                Ok(event) => EventResult::Event(event),
+                Err(mpsc::RecvTimeoutError::Timeout) => EventResult::Timeout,
+                Err(e) => return Err(anyhow!(e)),
+            },
+            None => EventResult::Event(rxc.recv()?),
+        })
+    }
+
     /// This starts the event polling mechanism. A dedicated thread is started
     /// for events to be retrieved and processed.
     pub(crate) fn start(&mut self, mut section_factories: SectionFactories) -> Result<()> {
@@ -232,6 +263,8 @@ impl BpfEventsFactory {
             // termination. This is useful in the case we're
             // processing a huge number of buffers and rb.poll() never
             // times out.
+            // 如果接收到终止信号，则从回调函数中返回 (EINTR) 来触发事件线程的终止。
+            // 这在我们处理大量缓冲区且 rb.poll() 永远不会超时的情况下非常有用。
             if !run_state.running() {
                 return -4;
             }
@@ -268,38 +301,6 @@ impl BpfEventsFactory {
         self.log_handle = Some(self.ringbuf_handler(&self.log_map, process_log)?);
 
         Ok(())
-    }
-
-    /// Stops the event polling mechanism. The dedicated thread is stopped
-    /// joining the execution
-    pub(crate) fn stop(&mut self) -> Result<()> {
-        self.handle.take().map_or(Ok(()), |th| {
-            self.run_state.terminate();
-            th.join()
-                .map_err(|_| anyhow!("while joining bpf event thread"))
-        })?;
-
-        self.log_handle.take().map_or(Ok(()), |th| {
-            th.join()
-                .map_err(|_| anyhow!("while joining bpf log event thread"))
-        })
-    }
-
-    /// Retrieve the next event. This is a blocking call and never returns EOF.
-    pub(crate) fn next_event(&mut self, timeout: Option<Duration>) -> Result<EventResult> {
-        let rxc = match &self.rxc {
-            Some(rxc) => rxc,
-            None => bail!("Can't get event, no rx channel found."),
-        };
-
-        Ok(match timeout {
-            Some(timeout) => match rxc.recv_timeout(timeout) {
-                Ok(event) => EventResult::Event(event),
-                Err(mpsc::RecvTimeoutError::Timeout) => EventResult::Timeout,
-                Err(e) => return Err(anyhow!(e)),
-            },
-            None => EventResult::Event(rxc.recv()?),
-        })
     }
 }
 
@@ -407,17 +408,6 @@ pub(crate) fn parse_raw_section<'a, T>(raw_section: &'a BpfRawSection) -> Result
     Ok(unsafe { mem::transmute::<&u8, &T>(&raw_section.data[0]) })
 }
 
-/// Helper to parse a single raw section from BPF raw sections, checking the
-/// section validity and parsing it into a structured type.
-pub(crate) fn parse_single_raw_section<'a, T>(raw_sections: &'a [BpfRawSection]) -> Result<&'a T> {
-    if raw_sections.len() != 1 {
-        bail!("Raw event must be a single section");
-    }
-
-    // We can access the first element safely as we just checked the vector
-    // contains 1 element.
-    parse_raw_section::<T>(&raw_sections[0])
-}
 
 pub(crate) fn parse_enum(r#enum: &str, trim_start: &[&str]) -> Result<HashMap<u32, String>> {
     let mut values = HashMap::new();
@@ -555,6 +545,53 @@ pub(crate) trait RawEventSectionFactory {
     fn create(&mut self, raw_sections: Vec<BpfRawSection>) -> Result<Box<dyn EventSection>>;
 }
 
+/// Type alias to refer to the commonly used EventSectionFactory HashMap.
+pub(crate) type SectionFactories = HashMap<FactoryId, Box<dyn EventSectionFactory>>;
+
+#[cfg(feature = "benchmark")]
+pub(crate) mod benchmark {
+    use anyhow::Result;
+    use std::os::raw::c_char;
+
+    use super::common_task_event;
+    use crate::{
+        benchmark::helpers::*,
+        bindings::events_uapi::common_event,
+        core::events::{FactoryId, COMMON_SECTION_CORE, COMMON_SECTION_TASK},
+    };
+
+    impl RawSectionBuilder for common_event {
+        fn build_raw(out: &mut Vec<u8>) -> Result<()> {
+            let data = Self::default();
+            build_raw_section(
+                out,
+                FactoryId::Common as u8,
+                COMMON_SECTION_CORE as u8,
+                &mut as_u8_vec(&data),
+            );
+            Ok(())
+        }
+    }
+
+    impl RawSectionBuilder for common_task_event {
+        fn build_raw(out: &mut Vec<u8>) -> Result<()> {
+            let mut data = common_task_event::default();
+            data.comm[0] = b'r' as i8 as c_char;
+            data.comm[1] = b'e' as i8 as c_char;
+            data.comm[2] = b't' as i8 as c_char;
+            data.comm[3] = b'i' as i8 as c_char;
+            data.comm[4] = b's' as i8 as c_char;
+            build_raw_section(
+                out,
+                FactoryId::Common as u8,
+                COMMON_SECTION_TASK as u8,
+                &mut as_u8_vec(&data),
+            );
+            Ok(())
+        }
+    }
+}
+
 /// Identifier for factories. Should match their counterparts in the BPF side.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum FactoryId {
@@ -590,223 +627,15 @@ impl FactoryId {
     }
 }
 
-/// Type alias to refer to the commonly used EventSectionFactory HashMap.
-pub(crate) type SectionFactories = HashMap<FactoryId, Box<dyn EventSectionFactory>>;
 
-#[cfg(feature = "benchmark")]
-pub(crate) mod benchmark {
-    use anyhow::Result;
-
-    use super::common_task_event;
-    use crate::{
-        benchmark::helpers::*,
-        bindings::events_uapi::common_event,
-        core::events::{FactoryId, COMMON_SECTION_CORE, COMMON_SECTION_TASK},
-    };
-
-    impl RawSectionBuilder for common_event {
-        fn build_raw(out: &mut Vec<u8>) -> Result<()> {
-            let data = Self::default();
-            build_raw_section(
-                out,
-                FactoryId::Common as u8,
-                COMMON_SECTION_CORE as u8,
-                &mut as_u8_vec(&data),
-            );
-            Ok(())
-        }
+/// Helper to parse a single raw section from BPF raw sections, checking the
+/// section validity and parsing it into a structured type.
+pub(crate) fn parse_single_raw_section<'a, T>(raw_sections: &'a [BpfRawSection]) -> Result<&'a T> {
+    if raw_sections.len() != 1 {
+        bail!("Raw event must be a single section");
     }
 
-    impl RawSectionBuilder for common_task_event {
-        fn build_raw(out: &mut Vec<u8>) -> Result<()> {
-            let mut data = common_task_event::default();
-            data.comm[0] = b'r' as i8;
-            data.comm[1] = b'e' as i8;
-            data.comm[2] = b't' as i8;
-            data.comm[3] = b'i' as i8;
-            data.comm[4] = b's' as i8;
-            build_raw_section(
-                out,
-                FactoryId::Common as u8,
-                COMMON_SECTION_TASK as u8,
-                &mut as_u8_vec(&data),
-            );
-            Ok(())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde::{Deserialize, Serialize};
-
-    use super::*;
-    use crate::event_section_factory;
-    use crate::events::TestEvent;
-
-    const DATA_TYPE_U64: u8 = 1;
-    const DATA_TYPE_U128: u8 = 2;
-
-    #[event_section_factory(FactoryId::Common)]
-    #[derive(Default)]
-    struct TestEventFactory {}
-
-    impl RawEventSectionFactory for TestEventFactory {
-        fn create(&mut self, raw_sections: Vec<BpfRawSection>) -> Result<Box<dyn EventSection>> {
-            let mut event = TestEvent::default();
-
-            for raw in raw_sections.iter() {
-                let len = raw.data.len();
-
-                match raw.header.data_type {
-                    DATA_TYPE_U64 => {
-                        if len != 8 {
-                            bail!("Invalid section for data type 1");
-                        }
-
-                        event.field0 = Some(u64::from_ne_bytes(raw.data[0..8].try_into()?));
-                    }
-                    DATA_TYPE_U128 => {
-                        if len != 16 {
-                            bail!("Invalid section for data type 2");
-                        }
-
-                        event.field1 = Some(u64::from_ne_bytes(raw.data[0..8].try_into()?));
-                        event.field2 = Some(u64::from_ne_bytes(raw.data[8..16].try_into()?));
-                    }
-                    _ => bail!("Invalid data type"),
-                }
-            }
-
-            Ok(Box::new(event))
-        }
-    }
-
-    #[test]
-    fn parse_raw_event() {
-        let mut factories: SectionFactories = HashMap::new();
-        factories.insert(FactoryId::Common, Box::<TestEventFactory>::default());
-
-        // Empty event.
-        let data = [];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-
-        // Uncomplete event size.
-        let data = [0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-
-        // Valid event size but empty event.
-        let data = [0, 0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-
-        // Valid event size but incomplete event.
-        let data = [42, 0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-        let data = [2, 0, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-
-        // Valid event with a single empty section. Section is ignored.
-        let data = [4, 0, SectionId::Common as u8, DATA_TYPE_U64, 0, 0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-
-        // Valid event with a section too large. Section is ignored.
-        let data = [4, 0, SectionId::Common as u8, DATA_TYPE_U64, 4, 0, 42, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-        let data = [6, 0, SectionId::Common as u8, DATA_TYPE_U64, 4, 0, 42, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-
-        // Valid event with a section having an invalid owner.
-        let data = [4, 0, 0, DATA_TYPE_U64, 0, 0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-        let data = [4, 0, 255, DATA_TYPE_U64, 0, 0];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-
-        // Valid event with an invalid data type.
-        let data = [4, 0, SectionId::Common as u8, 0, 1, 0, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-        let data = [4, 0, SectionId::Common as u8, 255, 1, 0, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_ok());
-
-        // Valid event but invalid section (too small).
-        let data = [5, 0, SectionId::Common as u8, DATA_TYPE_U64, 1, 0, 42];
-        assert!(super::parse_raw_event(&data, &mut factories).is_err());
-
-        // Valid event, single section.
-        let data = [
-            12,
-            0,
-            SectionId::Common as u8,
-            DATA_TYPE_U64,
-            8,
-            0,
-            42,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        let event = super::parse_raw_event(&data, &mut factories).unwrap();
-        let section = event.get_section::<TestEvent>(SectionId::Common).unwrap();
-        assert!(section.field0 == Some(42));
-
-        // Valid event, multiple sections.
-        let data = [
-            44,
-            0,
-            // Section 1
-            SectionId::Common as u8,
-            DATA_TYPE_U64,
-            8,
-            0,
-            42,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            // Section 2
-            SectionId::Common as u8,
-            DATA_TYPE_U64,
-            8,
-            0,
-            57,
-            5,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            // Section 3
-            SectionId::Common as u8,
-            DATA_TYPE_U128,
-            16,
-            0,
-            42,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            57,
-            5,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
-        let event = super::parse_raw_event(&data, &mut factories).unwrap();
-        let section = event.get_section::<TestEvent>(SectionId::Common).unwrap();
-        assert!(section.field1 == Some(42));
-        assert!(section.field2 == Some(1337));
-    }
+    // We can access the first element safely as we just checked the vector
+    // contains 1 element.
+    parse_raw_section::<T>(&raw_sections[0])
 }

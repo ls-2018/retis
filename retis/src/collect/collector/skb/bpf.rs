@@ -27,13 +27,6 @@ use crate::{
     helpers,
 };
 
-pub(super) fn unmarshal_eth(eth: &EthernetPacket) -> Result<SkbEthEvent> {
-    Ok(SkbEthEvent {
-        etype: eth.get_ethertype().0,
-        src: helpers::net::parse_eth_addr(&eth.get_source().octets())?,
-        dst: helpers::net::parse_eth_addr(&eth.get_destination().octets())?,
-    })
-}
 
 pub(super) fn unmarshal_arp(arp: &ArpPacket) -> Result<Option<SkbArpEvent>> {
     let operation = match arp.get_operation().0 {
@@ -399,4 +392,12 @@ pub(crate) mod benchmark {
             Ok(())
         }
     }
+}
+
+pub(super) fn unmarshal_eth(eth: &EthernetPacket) -> Result<SkbEthEvent> {
+    Ok(SkbEthEvent {
+        etype: eth.get_ethertype().0,
+        src: helpers::net::parse_eth_addr(&eth.get_source().octets())?,
+        dst: helpers::net::parse_eth_addr(&eth.get_destination().octets())?,
+    })
 }

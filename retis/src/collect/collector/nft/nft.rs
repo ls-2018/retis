@@ -40,28 +40,35 @@ Note that stolen verdicts might not be visible if a filter has been specified us
     nft_verdicts: Vec<String>,
 }
 
-#[derive(Default)]
-pub(crate) struct NftCollector {
-    install_chain: bool,
-    // Used to keep a reference to our internal config map.
-    #[allow(dead_code)]
-    config_map: Option<libbpf_rs::MapHandle>,
-}
-
 impl NftCollector {
-    fn apply_json(&self, cmd: String) -> Result<()> {
-        let status = Command::new(NFT_BIN)
-            .arg("-j")
-            .arg(cmd)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()?;
+    fn config_map() -> Result<libbpf_rs::MapHandle> {
+        let opts = libbpf_sys::bpf_map_create_opts {
+            sz: mem::size_of::<libbpf_sys::bpf_map_create_opts>() as libbpf_sys::size_t,
+            ..Default::default()
+        };
 
-        if !status.success() {
-            bail!("Command failed with code: {:?}", status.code());
-        }
+        // Please keep in sync with its BPF counterpart in bpf/nft.bpf.c
+        libbpf_rs::MapHandle::create(
+            libbpf_rs::MapType::Array,
+            Some("nft_config_map"),
+            mem::size_of::<u32>() as u32,
+            mem::size_of::<nft_config>() as u32,
+            1,
+            &opts,
+        )
+        .or_else(|e| bail!("Could not create the nft config map: {}", e))
+    }
 
-        Ok(())
+    fn delete_table(&self, table: String) -> Result<()> {
+        let json = json!({"nftables":[
+        {"delete":
+         {"table":
+          {"family":"inet","name":table}
+         }
+        }]});
+
+        self.apply_json(json.to_string())
+            .map_err(|e| anyhow!("Unable to delete {table}: {e}. To remove the table, please run: {NFT_BIN} delete table inet {table}"))
     }
 
     fn create_table(&self) -> Result<()> {
@@ -88,42 +95,23 @@ impl NftCollector {
         self.apply_json(json.to_string())
     }
 
-    fn delete_table(&self, table: String) -> Result<()> {
-        let json = json!({"nftables":[
-        {"delete":
-         {"table":
-          {"family":"inet","name":table}
-         }
-        }]});
+    fn apply_json(&self, cmd: String) -> Result<()> {
+        let status = Command::new(NFT_BIN)
+            .arg("-j")
+            .arg(cmd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
 
-        self.apply_json(json.to_string())
-            .map_err(|e| anyhow!("Unable to delete {table}: {e}. To remove the table, please run: {NFT_BIN} delete table inet {table}"))
-    }
+        if !status.success() {
+            bail!("Command failed with code: {:?}", status.code());
+        }
 
-    fn config_map() -> Result<libbpf_rs::MapHandle> {
-        let opts = libbpf_sys::bpf_map_create_opts {
-            sz: mem::size_of::<libbpf_sys::bpf_map_create_opts>() as libbpf_sys::size_t,
-            ..Default::default()
-        };
-
-        // Please keep in sync with its BPF counterpart in bpf/nft.bpf.c
-        libbpf_rs::MapHandle::create(
-            libbpf_rs::MapType::Array,
-            Some("nft_config_map"),
-            mem::size_of::<u32>() as u32,
-            mem::size_of::<nft_config>() as u32,
-            1,
-            &opts,
-        )
-        .or_else(|e| bail!("Could not create the nft config map: {}", e))
+        Ok(())
     }
 }
 
 impl Collector for NftCollector {
-    fn new() -> Result<Self> {
-        Ok(Self::default())
-    }
-
     fn can_run(&mut self, cli: &Collect) -> Result<()> {
         let inspector = inspect::inspector()?;
 
@@ -132,7 +120,7 @@ impl Collector for NftCollector {
                 if kconf != Some("y")
                     && inspector.kernel.is_module_loaded("nf_tables") == Some(false)
                 {
-                    bail!("Kernel module 'nf_tables' is not loaded");
+                    bail!("Kernel module 'nf_tables' is not loaded,  modprobe nf_tables");
                 }
             }
             bail!("Could not resolve nft kernel symbol: 'nf_tables' kernel module is likely not built-in or loaded ({e})");
@@ -166,7 +154,7 @@ impl Collector for NftCollector {
             self.create_table()?;
         }
 
-        let mut verdicts: u64 = 0;
+        let mut verdicts: u64 = 0; // 裁定
         for verdict in args.collector_args.nft.nft_verdicts.iter() {
             verdicts |= match verdict.as_str() {
                 "all" => (1 << (VERD_MAX + 1)) - 1,
@@ -227,4 +215,16 @@ impl Collector for NftCollector {
         }
         Ok(())
     }
+
+    fn new() -> Result<Self> {
+        Ok(Self::default())
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct NftCollector {
+    install_chain: bool,
+    // Used to keep a reference to our internal config map.
+    #[allow(dead_code)]
+    config_map: Option<libbpf_rs::MapHandle>,
 }

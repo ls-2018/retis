@@ -49,10 +49,6 @@ use crate::{display::*, *};
 pub struct Event(HashMap<SectionId, Box<dyn EventSection>>);
 
 impl Event {
-    pub fn new() -> Event {
-        Event::default()
-    }
-
     /// Create an Event from a json object.
     pub(crate) fn from_json_obj(mut obj: HashMap<String, serde_json::Value>) -> Result<Event> {
         let mut event = Event::new();
@@ -117,6 +113,15 @@ impl Event {
         self.0.get(&owner)
     }
 
+    /// Iterator over the existing sections
+    pub fn sections(&self) -> impl Iterator<Item = SectionId> + '_ {
+        self.0.keys().map(|s| s.to_owned())
+    }
+
+    pub fn new() -> Event {
+        Event::default()
+    }
+
     pub fn to_json(&self) -> serde_json::Value {
         let mut event = serde_json::Map::new();
 
@@ -125,11 +130,6 @@ impl Event {
         }
 
         serde_json::Value::Object(event)
-    }
-
-    /// Iterator over the existing sections
-    pub fn sections(&self) -> impl Iterator<Item = SectionId> + '_ {
-        self.0.keys().map(|s| s.to_owned())
     }
 }
 

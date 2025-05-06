@@ -11,43 +11,8 @@ use super::TimeSpec;
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub enum TimeFormat {
     #[default]
-    MonotonicTimestamp,
+    MonotonicTimestamp, // 单调时间戳
     UtcDate,
-}
-
-/// Controls how an event is formatted.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct DisplayFormat {
-    /// Can the formatting logic use more than a single line?
-    pub multiline: bool,
-    /// How the time is formatted.
-    pub time_format: TimeFormat,
-    /// Offset of the monotonic clock to the wall-clock time.
-    pub monotonic_offset: Option<TimeSpec>,
-}
-
-impl DisplayFormat {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Configure multi-line output.
-    pub fn multiline(mut self, enabled: bool) -> Self {
-        self.multiline = enabled;
-        self
-    }
-
-    /// Configure how the time will be formatted.
-    pub fn time_format(mut self, format: TimeFormat) -> Self {
-        self.time_format = format;
-        self
-    }
-
-    /// Sets the monotonic clock to the wall-clock time.
-    pub fn monotonic_offset(mut self, offset: TimeSpec) -> Self {
-        self.monotonic_offset = Some(offset);
-        self
-    }
 }
 
 /// `Formatter` implements `std::fmt::Write` and controls how events are being
@@ -227,46 +192,6 @@ pub trait EventDisplay<'a>: EventFmt {
     ) -> Box<dyn fmt::Display + 'a>;
 }
 
-/// Trait controlling how an event or an event section (or any custom type
-/// inside it) is formatted.
-///
-/// Splitting this from EventDisplay allows to 1) not implement boilerplate for
-/// all event sections and custom types thanks to the following generic
-/// implementation and 2) access `self` directly allowing to access its private
-/// members if any.
-pub trait EventFmt {
-    /// Default formatting of an event.
-    fn event_fmt(&self, f: &mut Formatter, format: &DisplayFormat) -> fmt::Result;
-}
-
-impl<'a, T> EventDisplay<'a> for T
-where
-    T: EventFmt,
-{
-    fn display(
-        &'a self,
-        format: &'a DisplayFormat,
-        conf: &'a FormatterConf,
-    ) -> Box<dyn fmt::Display + 'a> {
-        struct DefaultDisplay<'a, U> {
-            myself: &'a U,
-            format: &'a DisplayFormat,
-            conf: &'a FormatterConf,
-        }
-        impl<U: EventFmt> fmt::Display for DefaultDisplay<'_, U> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                self.myself
-                    .event_fmt(&mut Formatter::new(f, self.conf.clone()), self.format)
-            }
-        }
-        Box::new(DefaultDisplay {
-            myself: self,
-            format,
-            conf,
-        })
-    }
-}
-
 /// DelimWriter is a simple helper that prints a character delimiter (e.g: ',' or ' ') only if it's
 /// not the first time write() is called. This helps print lists of optional fields.
 ///
@@ -321,5 +246,80 @@ impl DelimWriter {
     /// Was the DelimWriter used?
     pub fn used(&self) -> bool {
         !self.first
+    }
+}
+
+/// 控制事件的格式化方式。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DisplayFormat {
+    /// 这种格式化逻辑是否可以使用多于一行的结构？
+    pub multiline: bool,
+    /// 时间是如何格式化的。
+    pub time_format: TimeFormat,
+    /// 单调时钟相对于实际时间（即壁钟时间）的偏移量。
+    pub monotonic_offset: Option<TimeSpec>,
+}
+
+impl DisplayFormat {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Configure multi-line output.
+    pub fn multiline(mut self, enabled: bool) -> Self {
+        self.multiline = enabled;
+        self
+    }
+
+    /// Configure how the time will be formatted.
+    pub fn time_format(mut self, format: TimeFormat) -> Self {
+        self.time_format = format;
+        self
+    }
+
+    /// Sets the monotonic clock to the wall-clock time.
+    pub fn monotonic_offset(mut self, offset: TimeSpec) -> Self {
+        self.monotonic_offset = Some(offset);
+        self
+    }
+}
+
+/// Trait controlling how an event or an event section (or any custom type
+/// inside it) is formatted.
+///
+/// Splitting this from EventDisplay allows to 1) not implement boilerplate for
+/// all event sections and custom types thanks to the following generic
+/// implementation and 2) access `self` directly allowing to access its private
+/// members if any.
+pub trait EventFmt {
+    /// Default formatting of an event.
+    fn event_fmt(&self, f: &mut Formatter, format: &DisplayFormat) -> fmt::Result;
+}
+
+impl<'a, T> EventDisplay<'a> for T
+where
+    T: EventFmt,
+{
+    fn display(
+        &'a self,
+        format: &'a DisplayFormat,
+        conf: &'a FormatterConf,
+    ) -> Box<dyn fmt::Display + 'a> {
+        struct DefaultDisplay<'a, U> {
+            myself: &'a U,
+            format: &'a DisplayFormat,
+            conf: &'a FormatterConf,
+        }
+        impl<U: EventFmt> fmt::Display for DefaultDisplay<'_, U> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                self.myself
+                    .event_fmt(&mut Formatter::new(f, self.conf.clone()), self.format)
+            }
+        }
+        Box::new(DefaultDisplay {
+            myself: self,
+            format,
+            conf,
+        })
     }
 }

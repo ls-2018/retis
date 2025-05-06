@@ -37,6 +37,39 @@ impl TrackingGC {
     // 5 seconds
     const DEFAULT_INTERVAL: u64 = 5;
 
+    pub(crate) fn join(&mut self) -> Result<()> {
+        if let Some(thread) = self.thread.take() {
+            thread
+                .join()
+                .map_err(|e| anyhow!("Failed to join thread {}: {e:?}", self.name))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn format_key(map: &libbpf_rs::MapHandle, key: Vec<u8>) -> String {
+        let default_format = || format!("{:#x?}", key);
+
+        // Try to format the key as unsigned integers and fall back to printing the u8 vector as
+        // hex if we fail.
+        match map.key_size() {
+            4 => {
+                let bytes: Result<[u8; 4], _> = key[..4].try_into();
+                match bytes {
+                    Ok(bytes) => format!("{}", u32::from_ne_bytes(bytes)),
+                    Err(_) => default_format(),
+                }
+            }
+            8 => {
+                let bytes: Result<[u8; 8], _> = key[..8].try_into();
+                match bytes {
+                    Ok(bytes) => format!("{}", u64::from_ne_bytes(bytes)),
+                    Err(_) => default_format(),
+                }
+            }
+            _ => default_format(),
+        }
+    }
     pub(crate) fn new<F>(
         name: &'static str,
         mut maps: HashMap<&'static str, libbpf_rs::MapHandle>,
@@ -66,11 +99,17 @@ impl TrackingGC {
     }
 
     pub(crate) fn start(&mut self, state: Running) -> Result<()> {
-        let interval = self.interval;
-        let limit = self.limit;
+        let interval = self.interval; // 5
+        let limit = self.limit; // 60
         let mut maps = self.maps.take().unwrap();
         let extract_age = self.extract_age.clone();
-        self.thread = Some(thread::Builder::new().name(self.name.clone()).spawn(move || {
+
+        // 需求	命令
+        // 显示所有线程	ps -eLf
+        // 显示线程真实名称	ps -eLo pid,lwp,comm,cmd
+        // 设置线程名称（代码）	pthread_setname_np()
+
+        self.thread = Some(thread::Builder::new().name(self.name.clone()).spawn(move || {// skb-tracking-gc
             let running = || -> bool {
                 // Let's run every interval seconds.
                 for _ in 0..interval {
@@ -106,8 +145,8 @@ impl TrackingGC {
                             }
                         }
                     }
-                    // Actually remove the outdated entries and issue a warning as
-                    // while it can be expected, it should not happen too often.
+                    // Actually remove the outdated entries and issue a warning as while it can be expected, it should not happen too often.
+                    // 实际上要删除那些过时的条目，并发出警告，因为这种情况虽然可以预料到，但不应频繁发生。
                     for key in to_remove {
                         map.delete(&key).ok();
                         warn!("Removed old entry from {name} tracking map: {}", Self::format_key(map, key));
@@ -116,39 +155,5 @@ impl TrackingGC {
             }
         })?);
         Ok(())
-    }
-
-    pub(crate) fn join(&mut self) -> Result<()> {
-        if let Some(thread) = self.thread.take() {
-            thread
-                .join()
-                .map_err(|e| anyhow!("Failed to join thread {}: {e:?}", self.name))
-        } else {
-            Ok(())
-        }
-    }
-
-    pub(crate) fn format_key(map: &libbpf_rs::MapHandle, key: Vec<u8>) -> String {
-        let default_format = || format!("{:#x?}", key);
-
-        // Try to format the key as unsigned integers and fall back to printing the u8 vector as
-        // hex if we fail.
-        match map.key_size() {
-            4 => {
-                let bytes: Result<[u8; 4], _> = key[..4].try_into();
-                match bytes {
-                    Ok(bytes) => format!("{}", u32::from_ne_bytes(bytes)),
-                    Err(_) => default_format(),
-                }
-            }
-            8 => {
-                let bytes: Result<[u8; 8], _> = key[..8].try_into();
-                match bytes {
-                    Ok(bytes) => format!("{}", u64::from_ne_bytes(bytes)),
-                    Err(_) => default_format(),
-                }
-            }
-            _ => default_format(),
-        }
     }
 }

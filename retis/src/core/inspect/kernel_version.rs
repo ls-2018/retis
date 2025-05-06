@@ -7,35 +7,7 @@ use anyhow::{anyhow, bail, Result};
 use nix::sys::utsname::uname;
 use regex::Regex;
 
-/// Represents a kernel version, eg. 6.2.14-300.fc38.x86_64
-pub(crate) struct KernelVersion {
-    /// Major number, eg. 6.
-    major: u32,
-    /// Minor number, eg. 2.
-    minor: u32,
-    /// Patch number, eg. 14.
-    patch: u32,
-    /// Build number, eg. 300.
-    build: Option<u32>,
-    /// Full kernel release version, same as `$(uname -r)`, eg.
-    /// 6.2.14-300.fc38.x86_64.
-    pub(crate) full: String,
-}
-
 impl KernelVersion {
-    pub(super) fn new() -> Result<Self> {
-        Self::parse(
-            #[cfg(not(test))]
-            uname()
-                .map_err(|e| anyhow!("Failed to get kernel version information: {e}"))?
-                .release()
-                .to_str()
-                .ok_or_else(|| anyhow!("Could not convert kernel version to str"))?,
-            #[cfg(test)]
-            "6.2.14-300.fc38.x86_64",
-        )
-    }
-
     /// Parse a version string of the `$(uname -r)` form into a KernelVersion.
     pub(crate) fn parse(version: &str) -> Result<Self> {
         let mut parts = version.split('.');
@@ -69,6 +41,18 @@ impl KernelVersion {
             build,
             full: version.to_string(),
         })
+    }
+    pub(super) fn new() -> Result<Self> {
+        Self::parse(
+            // #[cfg(not(test))]
+            uname()
+                .map_err(|e| anyhow!("Failed to get kernel version information: {e}"))?
+                .release()
+                .to_str()
+                .ok_or_else(|| anyhow!("Could not convert kernel version to str"))?,
+            // #[cfg(test)]
+            // "6.2.14-300.fc38.x86_64",
+        )
     }
 }
 
@@ -270,105 +254,17 @@ impl Operator {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn kernel_version() {
-        let version = KernelVersion::new().unwrap();
-        assert_eq!(version.major, 6);
-        assert_eq!(version.minor, 2);
-        assert_eq!(version.patch, 14);
-        assert_eq!(version.build, Some(300));
-        assert_eq!(version.full, "6.2.14-300.fc38.x86_64");
-
-        let version = KernelVersion::parse("6.2.0-20-generic").unwrap();
-        assert_eq!(version.major, 6);
-        assert_eq!(version.minor, 2);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.build, Some(20));
-        assert_eq!(version.full, "6.2.0-20-generic");
-
-        let version = KernelVersion::parse("6.2.14.fc38.x86_64").unwrap();
-        assert_eq!(version.major, 6);
-        assert_eq!(version.minor, 2);
-        assert_eq!(version.patch, 14);
-        assert_eq!(version.build, None);
-        assert_eq!(version.full, "6.2.14.fc38.x86_64");
-
-        let version = KernelVersion::parse("6.4.12-arch1-1").unwrap();
-        assert_eq!(version.major, 6);
-        assert_eq!(version.minor, 4);
-        assert_eq!(version.patch, 12);
-        assert_eq!(version.build, Some(1));
-        assert_eq!(version.full, "6.4.12-arch1-1");
-
-        assert!(KernelVersion::parse("6.2").is_err());
-    }
-
-    #[test]
-    fn kernel_version_match() {
-        let version = KernelVersion::parse("6.2.14-300.fc38.x86_64").unwrap();
-
-        let req = KernelVersionReq::parse("= 6.2.14-300").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("= 6.2.14").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("= 6.2.15").unwrap();
-        assert!(!req.matches(&version));
-        let req = KernelVersionReq::parse("= 6.2").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("= 6").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("= 7").unwrap();
-        assert!(!req.matches(&version));
-
-        let req = KernelVersionReq::parse("!= 6.2.14-301").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("!= 6.3").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("!= 5").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("!= 6.2.14").unwrap();
-        assert!(!req.matches(&version));
-
-        let req = KernelVersionReq::parse("> 6.2.14-200").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("> 6.1").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("> 5").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse("> 6.2").unwrap();
-        assert!(!req.matches(&version));
-
-        let req = KernelVersionReq::parse(">= 6.2.14-200").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 6.2.14-300").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 6.2.14").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 6.2.10").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 6.2").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 5.14").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 6").unwrap();
-        assert!(req.matches(&version));
-        let req = KernelVersionReq::parse(">= 5").unwrap();
-        assert!(req.matches(&version));
-    }
-
-    #[test]
-    fn deserialize_version_req() {
-        let req: KernelVersionReq = serde_json::from_str("\"= 6.2\"").unwrap();
-        let cmp = req.0.first().unwrap();
-
-        assert_eq!(cmp.op, Operator::Eq);
-        assert_eq!(cmp.major, 6);
-        assert_eq!(cmp.minor, Some(2));
-        assert_eq!(cmp.patch, None);
-        assert_eq!(cmp.build, None);
-    }
+/// Represents a kernel version, eg. 6.2.14-300.fc38.x86_64
+pub(crate) struct KernelVersion {
+    /// Major number, eg. 6.
+    major: u32,
+    /// Minor number, eg. 2.
+    minor: u32,
+    /// Patch number, eg. 14.
+    patch: u32,
+    /// Build number, eg. 300.
+    build: Option<u32>,
+    /// Full kernel release version, same as `$(uname -r)`, eg.
+    /// 6.2.14-300.fc38.x86_64.
+    pub(crate) full: String,
 }

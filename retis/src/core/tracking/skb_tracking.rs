@@ -197,7 +197,7 @@ pub(crate) fn init_tracking(
     };
     let cfg = unsafe { plain::as_bytes(&cfg) };
     config_map.update(&key, cfg, libbpf_rs::MapFlags::NO_EXIST)?;
-    let mut p = Probe::kprobe(symbol)?;
+    let mut p = Probe::kprobe(symbol)?; // ✅
     p.set_option(ProbeOption::NoGenericHook)?;
     probes.register_probe(p)?;
 
@@ -247,10 +247,8 @@ pub(crate) fn init_tracking(
     let cfg = unsafe { plain::as_bytes(&cfg) };
     config_map.update(&key, cfg, libbpf_rs::MapFlags::NO_EXIST)?;
 
-    // Take care of gargabe collection of tracking info. This should be done
-    // in the BPF part for most if not all skbs but we might lose some
-    // information (and tracked functions might fail resulting in incorrect
-    // information).
+    // 负责追踪信息的垃圾回收。
+    // 这本应主要在 BPF 部分完成（几乎适用于所有 skb），但我们可能会丢失一些信息（而被追踪的函数可能失败，导致信息不正确）。
     Ok((
         TrackingGC::new(
             "skb-tracking-gc",
@@ -261,8 +259,8 @@ pub(crate) fn init_tracking(
                 Ok(Duration::from_nanos(info.last_seen))
             },
         )
-        .interval(SKB_TRACKING_GC_INTERVAL)
-        .limit(TRACKING_OLD_LIMIT),
+        .interval(SKB_TRACKING_GC_INTERVAL) // 5
+        .limit(TRACKING_OLD_LIMIT), // 60
         config_map,
     ))
 }

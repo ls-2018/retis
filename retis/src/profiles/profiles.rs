@@ -349,8 +349,8 @@ collect:
     args:
 "#,
         );
-        assert!(w.matches_ver(&KernelVersion::parse("4.6.1").unwrap()));
-        assert!(!w.matches_ver(&KernelVersion::parse("4.6.2").unwrap()));
+        assert!(w.matches_ver(&KernelVersion::parse("4.6.1",).unwrap()));
+        assert!(!w.matches_ver(&KernelVersion::parse("4.6.2",).unwrap()));
 
         let w = version_cond(
             r#"
@@ -363,8 +363,8 @@ collect:
     args:
 "#,
         );
-        assert!(!w.matches_ver(&KernelVersion::parse("4.6.1").unwrap()));
-        assert!(w.matches_ver(&KernelVersion::parse("4.6.2").unwrap()));
+        assert!(!w.matches_ver(&KernelVersion::parse("4.6.1",).unwrap()));
+        assert!(w.matches_ver(&KernelVersion::parse("4.6.2",).unwrap()));
 
         let w = version_cond(
             r#"
@@ -377,10 +377,10 @@ collect:
     args:
 "#,
         );
-        assert!(!w.matches_ver(&KernelVersion::parse("4.6.1").unwrap()));
-        assert!(w.matches_ver(&KernelVersion::parse("4.6.2").unwrap()));
-        assert!(w.matches_ver(&KernelVersion::parse("5.1.0").unwrap()));
-        assert!(!w.matches_ver(&KernelVersion::parse("5.1.1").unwrap()));
+        assert!(!w.matches_ver(&KernelVersion::parse("4.6.1",).unwrap()));
+        assert!(w.matches_ver(&KernelVersion::parse("4.6.2",).unwrap()));
+        assert!(w.matches_ver(&KernelVersion::parse("5.1.0",).unwrap()));
+        assert!(!w.matches_ver(&KernelVersion::parse("5.1.1",).unwrap()));
     }
 
     #[test]

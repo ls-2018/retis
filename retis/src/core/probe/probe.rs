@@ -42,38 +42,11 @@ pub(crate) struct Probe {
 }
 
 impl Probe {
-    pub(super) fn from(r#type: ProbeType) -> Probe {
-        Probe {
-            r#type,
-            hooks: Vec::new(),
-            options: HashSet::new(),
-            ctx_hook: None,
-        }
-    }
-
-    /// Create a new kprobe.
-    pub(crate) fn kprobe(symbol: kernel::Symbol) -> Result<Probe> {
-        let r#type = match symbol {
-            kernel::Symbol::Func(_) => ProbeType::Kprobe(KernelProbe::new(symbol)?),
-            kernel::Symbol::Event(_) => bail!("Symbol cannot be probed with a kprobe"),
-        };
-        Ok(Probe::from(r#type))
-    }
-
     /// Create a new kretprobe
     pub(crate) fn kretprobe(symbol: kernel::Symbol) -> Result<Probe> {
         let r#type = match symbol {
             kernel::Symbol::Func(_) => ProbeType::Kretprobe(KernelProbe::new(symbol)?),
             kernel::Symbol::Event(_) => bail!("Symbol cannot be probed with a kretprobe"),
-        };
-        Ok(Probe::from(r#type))
-    }
-
-    /// Create a new raw tracepoint.
-    pub(crate) fn raw_tracepoint(symbol: kernel::Symbol) -> Result<Probe> {
-        let r#type = match symbol {
-            kernel::Symbol::Event(_) => ProbeType::RawTracepoint(KernelProbe::new(symbol)?),
-            kernel::Symbol::Func(_) => bail!("Symbol cannot be probed with a raw tracepoint"),
         };
         Ok(Probe::from(r#type))
     }
@@ -133,29 +106,6 @@ impl Probe {
         Ok(())
     }
 
-    /// Returns the number of hooks installed on the probe.
-    pub(crate) fn hooks_len(&self) -> usize {
-        self.hooks.len()
-    }
-
-    /// Is this probe generic (aimed at hosting generic hooks only)?
-    #[cfg(not(test))]
-    pub(crate) fn is_generic(&self) -> bool {
-        self.hooks.is_empty() && self.supports_generic_hooks()
-    }
-
-    /// Are generic hooks supported by the of probe?
-    pub(crate) fn supports_generic_hooks(&self) -> bool {
-        !matches!(self.r#type(), ProbeType::Usdt(_))
-            && !self.options.contains(&ProbeOption::NoGenericHook)
-    }
-
-    /// Set a probe option.
-    pub(crate) fn set_option(&mut self, option: ProbeOption) -> Result<()> {
-        self.options.insert(option);
-        Ok(())
-    }
-
     /// Get all probe's options.
     #[cfg_attr(test, allow(dead_code))]
     pub(crate) fn options(&self) -> Vec<ProbeOption> {
@@ -197,6 +147,55 @@ impl Probe {
         self.hooks.append(&mut other.hooks);
         Ok(())
     }
+
+    /// Create a new kprobe.
+    pub(crate) fn kprobe(symbol: kernel::Symbol) -> Result<Probe> {
+        let r#type = match symbol {
+            kernel::Symbol::Func(_) => ProbeType::Kprobe(KernelProbe::new(symbol)?),
+            kernel::Symbol::Event(_) => bail!("Symbol cannot be probed with a kprobe"),
+        };
+        Ok(Probe::from(r#type))
+    }
+
+    pub(super) fn from(r#type: ProbeType) -> Probe {
+        Probe {
+            r#type,
+            hooks: Vec::new(),
+            options: HashSet::new(),
+            ctx_hook: None,
+        }
+    }
+
+    /// Set a probe option.
+    pub(crate) fn set_option(&mut self, option: ProbeOption) -> Result<()> {
+        self.options.insert(option);
+        Ok(())
+    }
+
+    /// Create a new raw tracepoint.
+    pub(crate) fn raw_tracepoint(symbol: kernel::Symbol) -> Result<Probe> {
+        let r#type = match symbol {
+            kernel::Symbol::Event(_) => ProbeType::RawTracepoint(KernelProbe::new(symbol)?),
+            kernel::Symbol::Func(_) => bail!("Symbol cannot be probed with a raw tracepoint"),
+        };
+        Ok(Probe::from(r#type))
+    }
+    /// Returns the number of hooks installed on the probe.
+    pub(crate) fn hooks_len(&self) -> usize {
+        self.hooks.len()
+    }
+
+    /// Is this probe generic (aimed at hosting generic hooks only)?
+    #[cfg(not(test))]
+    pub(crate) fn is_generic(&self) -> bool {
+        self.hooks.is_empty() && self.supports_generic_hooks()
+    }
+
+    /// Are generic hooks supported by the of probe?
+    pub(crate) fn supports_generic_hooks(&self) -> bool {
+        !matches!(self.r#type(), ProbeType::Usdt(_))
+            && !self.options.contains(&ProbeOption::NoGenericHook)
+    }
 }
 
 /// Allow nice log messages.
@@ -216,19 +215,11 @@ impl fmt::Display for Probe {
 pub(crate) struct Hook {
     /// Hook BPF binary data.
     pub(super) bpf_prog: &'static [u8],
-    /// HashMap of maps names and their fd, for reuse by the hook.
+    /// HashMap 包含地图名称及其文件描述符（fd），以便由钩子程序重复使用。
     pub(super) maps: HashMap<String, RawFd>,
 }
 
 impl Hook {
-    /// Create a new hook given a BPF binary data.
-    pub(crate) fn from(bpf_prog: &'static [u8]) -> Hook {
-        Hook {
-            bpf_prog,
-            maps: HashMap::new(),
-        }
-    }
-
     /// Request to reuse a map specifically in the hook. For maps being globally
     /// reused please use Kernel::reuse_map() instead.
     pub(crate) fn reuse_map(&mut self, name: &str, fd: RawFd) -> Result<&mut Self> {
@@ -240,5 +231,12 @@ impl Hook {
 
         self.maps.insert(name, fd);
         Ok(self)
+    }
+    /// Create a new hook given a BPF binary data.
+    pub(crate) fn from(bpf_prog: &'static [u8]) -> Hook {
+        Hook {
+            bpf_prog,
+            maps: HashMap::new(),
+        }
     }
 }

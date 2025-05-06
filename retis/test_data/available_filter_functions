@@ -2324,7 +2324,7 @@ kprobe_emulate_loop
 resume_singlestep
 kprobe_emulate_call_indirect
 kprobe_emulate_jmp_indirect
-__recover_probed_insn
+__recprobed_insn
 kprobe_post_process
 setup_singlestep
 reenter_kprobe
@@ -2332,7 +2332,7 @@ kprobe_int3_handler
 kprobe_fault_handler
 can_probe
 can_boost
-recover_probed_instruction
+recprobed_instruction
 arch_adjust_kprobe_addr
 __copy_instruction
 arch_copy_kprobe
@@ -2347,7 +2347,7 @@ can_optimize
 copy_optimized_instructions
 setup_detour_execution
 optimized_callback
-__recover_optprobed_insn
+__recoptprobed_insn
 arch_check_optimized_kprobe
 arch_within_optimized_kprobe
 arch_remove_optimized_kprobe
@@ -3212,7 +3212,7 @@ raise_softirq
 __tasklet_schedule_common
 __tasklet_schedule
 __tasklet_hi_schedule
-takeover_tasklets
+taketasklets
 open_softirq
 __ftrace_invalid_address___52
 r_stop
@@ -7061,7 +7061,7 @@ tick_setup_device
 tick_install_replacement
 tick_check_replacement
 tick_check_new_device
-tick_handover_do_timer
+tick_handdo_timer
 tick_shutdown
 tick_suspend_local
 tick_resume_local
@@ -10453,7 +10453,7 @@ bdi_set_max_bytes
 bdi_set_strict_limit
 wb_calc_thresh
 wb_update_bandwidth
-wb_over_bg_thresh
+wb_bg_thresh
 laptop_mode_timer_fn
 laptop_io_completion
 laptop_sync_completion
@@ -12540,7 +12540,7 @@ folio_memcg_lock
 lock_page_memcg
 folio_memcg_unlock
 unlock_page_memcg
-mem_cgroup_handle_over_high
+mem_cgroup_handle_high
 try_charge_memcg
 mem_cgroup_can_attach
 charge_memcg
@@ -18222,7 +18222,7 @@ btrfs_put_dev_args_from_path
 btrfs_grow_device
 btrfs_get_chunk_map
 btrfs_resume_balance_async
-btrfs_recover_balance
+btrfs_recbalance
 btrfs_pause_balance
 btrfs_cancel_balance
 btrfs_create_uuid_tree
@@ -18411,7 +18411,7 @@ btrfs_free_log_root_tree
 btrfs_del_dir_entries_in_log
 btrfs_del_inode_ref_in_log
 btrfs_log_dentry_safe
-btrfs_recover_log_trees
+btrfs_reclog_trees
 btrfs_record_unlink_dir
 btrfs_record_snapshot_destroy
 btrfs_log_new_name
@@ -18589,7 +18589,7 @@ relocate_file_extent_cluster
 relocate_data_extent
 relocate_block_group
 btrfs_relocate_block_group
-btrfs_recover_relocation
+btrfs_recrelocation
 btrfs_reloc_clone_csums
 btrfs_reloc_cow_block
 btrfs_reloc_pre_snapshot
@@ -18906,16 +18906,16 @@ lock_stripe_add
 raid_unplug
 alloc_rbio.isra.0
 verify_one_sector
-recover_sectors
+recsectors
 unlock_stripe
 rbio_orig_end_io
 rmw_rbio
 rmw_rbio_work
 rmw_rbio_work_locked
 scrub_rbio_work_locked
-recover_rbio
-recover_rbio_work_locked
-recover_rbio_work
+recrbio
+recrbio_work_locked
+recrbio_work
 btrfs_alloc_stripe_hash_table
 btrfs_free_stripe_hash_table
 raid56_parity_write
@@ -23089,7 +23089,7 @@ bfq_updated_next_req
 bfq_may_be_close_cooperator
 bfq_may_expire_for_budg_timeout
 bfq_setup_merge
-bfqq_request_over_limit
+bfqq_request_limit
 bfq_limit_depth
 bfq_mark_bfqq_just_created
 bfq_clear_bfqq_just_created
@@ -26058,7 +26058,7 @@ aer_print_port_info
 aer_root_reset
 find_device_iter
 find_source_device
-aer_recover_queue
+aer_recqueue
 aer_remove
 aer_probe
 __aer_print_error
@@ -26079,7 +26079,7 @@ pci_aer_init
 pci_aer_exit
 aer_print_error
 cper_print_aer
-aer_recover_work_func
+aer_recwork_func
 aer_get_device_error_info
 aer_isr
 report_error_detected
@@ -29898,14 +29898,14 @@ requested_microamps_show
 opmode_show
 _regulator_get_error_flags
 regulator_get_error_flags
-over_temp_warn_show
-over_voltage_warn_show
-over_current_warn_show
+temp_warn_show
+voltage_warn_show
+current_warn_show
 under_voltage_warn_show
-over_temp_show
+temp_show
 fail_show
 regulation_out_show
-over_current_show
+current_show
 under_voltage_show
 _regulator_do_disable
 state_show
@@ -30580,7 +30580,7 @@ redraw_screen
 do_unblank_screen
 unblank_screen
 do_bind_con_driver.isra.0
-do_take_over_console
+do_take_console
 do_unbind_con_driver
 store_bind
 vc_do_resize
@@ -37567,7 +37567,7 @@ early_stop_store
 early_stop_show
 disable_store
 disable_show
-over_current_count_show
+current_count_show
 quirks_show
 location_show
 connect_type_show
@@ -37966,7 +37966,7 @@ xhci_urb_enqueue
 xhci_free_device_endpoint_resources
 xhci_disable_slot
 xhci_alloc_dev
-xhci_discover_or_reset_device
+xhci_discor_reset_device
 xhci_setup_device
 xhci_enable_device
 xhci_address_device
@@ -38115,7 +38115,7 @@ __traceiter_xhci_add_endpoint
 __traceiter_xhci_alloc_dev
 __traceiter_xhci_free_dev
 __traceiter_xhci_handle_cmd_disable_slot
-__traceiter_xhci_discover_or_reset_device
+__traceiter_xhci_discor_reset_device
 __traceiter_xhci_setup_device_slot
 __traceiter_xhci_handle_cmd_addr_dev
 __traceiter_xhci_handle_cmd_reset_dev
@@ -39015,7 +39015,7 @@ i2c_cmd
 i2c_transfer_trace_reg
 i2c_transfer_trace_unreg
 i2c_generic_scl_recovery
-i2c_recover_bus
+i2c_recbus
 i2c_device_shutdown
 i2c_client_dev_release
 i2c_put_dma_safe_msg_buf
@@ -43681,7 +43681,7 @@ tx_dropped_show
 multicast_show
 collisions_show
 rx_length_errors_show
-rx_over_errors_show
+rx_errors_show
 rx_crc_errors_show
 rx_frame_errors_show
 rx_fifo_errors_show
@@ -47893,7 +47893,7 @@ packet_diag_dump
 __traceiter_devlink_hwmsg
 __traceiter_devlink_hwerr
 __traceiter_devlink_health_report
-__traceiter_devlink_health_recover_aborted
+__traceiter_devlink_health_recaborted
 __traceiter_devlink_health_reporter_state_update
 __traceiter_devlink_trap_report
 devlink_nl_cmd_port_unsplit_doit
@@ -48186,13 +48186,13 @@ devlink_fmsg_binary_pair_put
 devlink_fmsg_prepare_skb
 devlink_nl_health_reporter_fill
 devlink_nl_cmd_health_reporter_get_dump_one
-devlink_recover_notify.constprop.0
+devlink_recnotify.constprop.0
 devlink_health_reporter_state_update
 devlink_health_reporter_recover
 devlink_health_report
 devlink_nl_cmd_health_reporter_get_doit
 devlink_nl_cmd_health_reporter_set_doit
-devlink_nl_cmd_health_reporter_recover_doit
+devlink_nl_cmd_health_reporter_recdoit
 devlink_nl_cmd_health_reporter_diagnose_doit
 devlink_nl_cmd_health_reporter_dump_get_dumpit
 devlink_nl_cmd_health_reporter_dump_clear_doit
@@ -49855,12 +49855,12 @@ serio_raw_open [serio_raw]
 serio_raw_connect [serio_raw]
 serio_raw_disconnect [serio_raw]
 serio_raw_release [serio_raw]
-failover_get_bymac [failover]
-failover_slave_unregister [failover]
-failover_slave_register [failover]
-failover_event [failover]
-failover_unregister [failover]
-failover_register [failover]
+failget_bymac [failover]
+failslave_unregister [failover]
+failslave_register [failover]
+failevent [failover]
+failunregister [failover]
+failregister [failover]
 ttm_kmap_iter_tt_map_local [ttm]
 ttm_kmap_iter_tt_unmap_local [ttm]
 ttm_tt_fini [ttm]
@@ -49998,30 +49998,30 @@ ttm_agp_bind [ttm]
 ttm_agp_unbind [ttm]
 ttm_agp_tt_create [ttm]
 ttm_agp_destroy [ttm]
-net_failover_fold_stats [net_failover]
-net_failover_handle_frame [net_failover]
-net_failover_slave_pre_unregister [net_failover]
-net_failover_slave_name_change [net_failover]
-net_failover_xmit_ready [net_failover]
-net_failover_compute_features [net_failover]
-net_failover_slave_unregister [net_failover]
-net_failover_change_mtu [net_failover]
-net_failover_slave_pre_register [net_failover]
+net_failfold_stats [net_failover]
+net_failhandle_frame [net_failover]
+net_failslave_pre_unregister [net_failover]
+net_failslave_name_change [net_failover]
+net_failxmit_ready [net_failover]
+net_failcompute_features [net_failover]
+net_failslave_unregister [net_failover]
+net_failchange_mtu [net_failover]
+net_failslave_pre_register [net_failover]
 nfo_ethtool_get_link_ksettings [net_failover]
 nfo_ethtool_get_drvinfo [net_failover]
-net_failover_vlan_rx_kill_vid [net_failover]
-net_failover_vlan_rx_add_vid [net_failover]
-net_failover_set_rx_mode [net_failover]
-net_failover_get_stats [net_failover]
-net_failover_select_queue [net_failover]
-net_failover_start_xmit [net_failover]
-net_failover_open [net_failover]
-net_failover_create [net_failover]
-net_failover_destroy [net_failover]
-net_failover_lower_state_changed [net_failover]
-net_failover_slave_link_change [net_failover]
-net_failover_slave_register [net_failover]
-net_failover_close [net_failover]
+net_failvlan_rx_kill_vid [net_failover]
+net_failvlan_rx_add_vid [net_failover]
+net_failset_rx_mode [net_failover]
+net_failget_stats [net_failover]
+net_failselect_queue [net_failover]
+net_failstart_xmit [net_failover]
+net_failopen [net_failover]
+net_failcreate [net_failover]
+net_faildestroy [net_failover]
+net_faillower_state_changed [net_failover]
+net_failslave_link_change [net_failover]
+net_failslave_register [net_failover]
+net_failclose [net_failover]
 drm_gem_ttm_print_info [drm_ttm_helper]
 drm_gem_ttm_vmap [drm_ttm_helper]
 drm_gem_ttm_vunmap [drm_ttm_helper]
@@ -50727,26 +50727,26 @@ __traceiter_xfs_dir2_leafn_moveents [xfs]
 __traceiter_xfs_swap_extent_before [xfs]
 __traceiter_xfs_swap_extent_after [xfs]
 __traceiter_xfs_log_recover [xfs]
-__traceiter_xfs_log_recover_record [xfs]
-__traceiter_xfs_log_recover_item_add [xfs]
-__traceiter_xfs_log_recover_item_add_cont [xfs]
-__traceiter_xfs_log_recover_item_reorder_head [xfs]
-__traceiter_xfs_log_recover_item_reorder_tail [xfs]
-__traceiter_xfs_log_recover_item_recover [xfs]
-__traceiter_xfs_log_recover_buf_not_cancel [xfs]
-__traceiter_xfs_log_recover_buf_cancel [xfs]
-__traceiter_xfs_log_recover_buf_cancel_add [xfs]
-__traceiter_xfs_log_recover_buf_cancel_ref_inc [xfs]
-__traceiter_xfs_log_recover_buf_recover [xfs]
-__traceiter_xfs_log_recover_buf_skip [xfs]
-__traceiter_xfs_log_recover_buf_inode_buf [xfs]
-__traceiter_xfs_log_recover_buf_reg_buf [xfs]
-__traceiter_xfs_log_recover_buf_dquot_buf [xfs]
-__traceiter_xfs_log_recover_inode_recover [xfs]
-__traceiter_xfs_log_recover_inode_cancel [xfs]
-__traceiter_xfs_log_recover_inode_skip [xfs]
-__traceiter_xfs_log_recover_icreate_cancel [xfs]
-__traceiter_xfs_log_recover_icreate_recover [xfs]
+__traceiter_xfs_log_recrecord [xfs]
+__traceiter_xfs_log_recitem_add [xfs]
+__traceiter_xfs_log_recitem_add_cont [xfs]
+__traceiter_xfs_log_recitem_reorder_head [xfs]
+__traceiter_xfs_log_recitem_reorder_tail [xfs]
+__traceiter_xfs_log_recitem_recover [xfs]
+__traceiter_xfs_log_recbuf_not_cancel [xfs]
+__traceiter_xfs_log_recbuf_cancel [xfs]
+__traceiter_xfs_log_recbuf_cancel_add [xfs]
+__traceiter_xfs_log_recbuf_cancel_ref_inc [xfs]
+__traceiter_xfs_log_recbuf_recover [xfs]
+__traceiter_xfs_log_recbuf_skip [xfs]
+__traceiter_xfs_log_recbuf_inode_buf [xfs]
+__traceiter_xfs_log_recbuf_reg_buf [xfs]
+__traceiter_xfs_log_recbuf_dquot_buf [xfs]
+__traceiter_xfs_log_recinode_recover [xfs]
+__traceiter_xfs_log_recinode_cancel [xfs]
+__traceiter_xfs_log_recinode_skip [xfs]
+__traceiter_xfs_log_recicreate_cancel [xfs]
+__traceiter_xfs_log_recicreate_recover [xfs]
 __traceiter_xfs_discard_extent [xfs]
 __traceiter_xfs_discard_toosmall [xfs]
 __traceiter_xfs_discard_exclude [xfs]
@@ -50822,7 +50822,7 @@ __traceiter_xfs_refcount_cow_increase [xfs]
 __traceiter_xfs_refcount_cow_decrease [xfs]
 __traceiter_xfs_refcount_merge_center_extents [xfs]
 __traceiter_xfs_refcount_modify_extent [xfs]
-__traceiter_xfs_refcount_recover_extent [xfs]
+__traceiter_xfs_refcount_recextent [xfs]
 __traceiter_xfs_refcount_split_extent [xfs]
 __traceiter_xfs_refcount_merge_left_extent [xfs]
 __traceiter_xfs_refcount_merge_right_extent [xfs]
@@ -51766,7 +51766,7 @@ xfs_rmapbt_max_size [xfs]
 xfs_rmapbt_calc_reserves [xfs]
 xfs_rmapbt_destroy_cur_cache [xfs]
 xfs_refcount_still_have_space [xfs]
-xfs_refcount_recover_extent [xfs]
+xfs_refcount_recextent [xfs]
 __xfs_refcount_add [xfs]
 xfs_refcount_update [xfs]
 xfs_refcount_lookup_le [xfs]
@@ -51796,7 +51796,7 @@ xfs_refcount_decrease_extent [xfs]
 xfs_refcount_find_shared [xfs]
 xfs_refcount_alloc_cow_extent [xfs]
 xfs_refcount_free_cow_extent [xfs]
-xfs_refcount_recover_cow_leftovers [xfs]
+xfs_refcount_reccow_leftovers [xfs]
 xfs_refcount_has_record [xfs]
 xfs_refcount_intent_destroy_cache [xfs]
 xfs_refcountbt_get_minrecs [xfs]
@@ -52377,7 +52377,7 @@ xfs_reflink_allocate_cow [xfs]
 xfs_reflink_cancel_cow_blocks [xfs]
 xfs_reflink_cancel_cow_range [xfs]
 xfs_reflink_end_cow [xfs]
-xfs_reflink_recover_cow [xfs]
+xfs_reflink_reccow [xfs]
 xfs_reflink_update_dest [xfs]
 xfs_reflink_remap_blocks [xfs]
 xfs_reflink_remap_prep [xfs]
@@ -52584,8 +52584,8 @@ xfs_bud_item_release [xfs]
 xfs_bui_init [xfs]
 xfs_bmap_update_create_intent [xfs]
 xfs_bui_item_recover [xfs]
-xlog_recover_bui_commit_pass2 [xfs]
-xlog_recover_bud_commit_pass2 [xfs]
+xlog_recbui_commit_pass2 [xfs]
+xlog_recbud_commit_pass2 [xfs]
 xfs_bui_item_format [xfs]
 xfs_bmap_update_finish_item [xfs]
 xfs_bmap_update_create_done [xfs]
@@ -52610,20 +52610,20 @@ xfs_buf_item_release [xfs]
 xfs_buf_item_committing [xfs]
 xfs_buf_item_unpin [xfs]
 xfs_buf_item_done [xfs]
-xlog_recover_buf_reorder [xfs]
-xlog_recover_validate_buf_type [xfs]
-xlog_recover_buf_ra_pass2 [xfs]
-xlog_recover_do_inode_buffer [xfs]
-xlog_recover_do_reg_buffer [xfs]
-xlog_recover_do_dquot_buffer [xfs]
-xlog_recover_buf_commit_pass1 [xfs]
-xlog_recover_buf_commit_pass2 [xfs]
+xlog_recbuf_reorder [xfs]
+xlog_recvalidate_buf_type [xfs]
+xlog_recbuf_ra_pass2 [xfs]
+xlog_recdo_inode_buffer [xfs]
+xlog_recdo_reg_buffer [xfs]
+xlog_recdo_dquot_buffer [xfs]
+xlog_recbuf_commit_pass1 [xfs]
+xlog_recbuf_commit_pass2 [xfs]
 xlog_is_buffer_cancelled [xfs]
 xlog_alloc_buf_cancel_table [xfs]
 xlog_free_buf_cancel_table [xfs]
-xlog_recover_quotaoff_commit_pass1 [xfs]
-xlog_recover_dquot_ra_pass2 [xfs]
-xlog_recover_dquot_commit_pass2 [xfs]
+xlog_recquotaoff_commit_pass1 [xfs]
+xlog_recdquot_ra_pass2 [xfs]
+xlog_recdquot_commit_pass2 [xfs]
 xfs_efi_item_size [xfs]
 xfs_efd_item_size [xfs]
 xfs_efd_item_intent [xfs]
@@ -52638,7 +52638,7 @@ xfs_efi_item_release [xfs]
 xfs_efi_item_unpin [xfs]
 xfs_efd_item_free [xfs]
 xfs_efd_item_release [xfs]
-xlog_recover_efd_commit_pass2 [xfs]
+xlog_recefd_commit_pass2 [xfs]
 xfs_agfl_free_finish_item [xfs]
 xfs_trans_get_efd [xfs]
 xfs_extent_free_create_done [xfs]
@@ -52650,7 +52650,7 @@ xfs_efi_item_recover [xfs]
 xfs_efi_init [xfs]
 xfs_efi_item_relog [xfs]
 xfs_extent_free_create_intent [xfs]
-xlog_recover_efi_commit_pass2 [xfs]
+xlog_recefi_commit_pass2 [xfs]
 xfs_efi_item_format [xfs]
 xfs_attri_item_size [xfs]
 xfs_attrd_item_size [xfs]
@@ -52659,7 +52659,7 @@ xfs_attr_log_item [xfs]
 xfs_attri_item_match [xfs]
 xfs_attrd_item_free [xfs]
 xfs_xattri_finish_update [xfs]
-xlog_recover_attrd_commit_pass2 [xfs]
+xlog_recattrd_commit_pass2 [xfs]
 xfs_attri_init [xfs]
 xfs_attr_create_intent [xfs]
 xfs_attri_item_free [xfs]
@@ -52668,7 +52668,7 @@ xfs_attrd_item_release [xfs]
 xfs_attr_abort_intent [xfs]
 xfs_attri_item_release [xfs]
 xfs_attri_item_unpin [xfs]
-xlog_recover_attri_commit_pass2 [xfs]
+xlog_recattri_commit_pass2 [xfs]
 xfs_attr_create_done [xfs]
 xfs_attr_cancel_item [xfs]
 xfs_attri_item_relog [xfs]
@@ -52677,10 +52677,10 @@ xfs_attri_item_recover [xfs]
 xfs_attrd_item_format [xfs]
 xfs_attri_item_format [xfs]
 xfs_icreate_item_size [xfs]
-xlog_recover_icreate_reorder [xfs]
+xlog_recicreate_reorder [xfs]
 xfs_icreate_item_release [xfs]
 xfs_icreate_item_format [xfs]
-xlog_recover_icreate_commit_pass2 [xfs]
+xlog_recicreate_commit_pass2 [xfs]
 xfs_icreate_log [xfs]
 xfs_inode_item_release [xfs]
 xfs_inode_item_committing [xfs]
@@ -52701,11 +52701,11 @@ xfs_iflush_abort [xfs]
 xfs_buf_inode_iodone [xfs]
 xfs_iflush_shutdown_abort [xfs]
 xfs_inode_item_format_convert [xfs]
-xfs_recover_inode_owner_change [xfs]
-xlog_recover_inode_ra_pass2 [xfs]
+xfs_recinode_owner_change [xfs]
+xlog_recinode_ra_pass2 [xfs]
 xlog_dinode_verify_extent_counts.constprop.0 [xfs]
 xfs_log_dinode_to_disk [xfs]
-xlog_recover_inode_commit_pass2 [xfs]
+xlog_recinode_commit_pass2 [xfs]
 xfs_iunlink_item_sort [xfs]
 xfs_iunlink_item_release [xfs]
 xfs_iunlink_item_precommit [xfs]
@@ -52726,8 +52726,8 @@ xfs_cud_item_release [xfs]
 xfs_cui_item_recover [xfs]
 xfs_cui_init [xfs]
 xfs_refcount_update_create_intent [xfs]
-xlog_recover_cui_commit_pass2 [xfs]
-xlog_recover_cud_commit_pass2 [xfs]
+xlog_reccui_commit_pass2 [xfs]
+xlog_reccud_commit_pass2 [xfs]
 xfs_cui_item_format [xfs]
 xfs_refcount_update_finish_item [xfs]
 xfs_refcount_update_create_done [xfs]
@@ -52749,8 +52749,8 @@ xfs_rud_item_release [xfs]
 xfs_rui_item_recover [xfs]
 xfs_rui_init [xfs]
 xfs_rmap_update_create_intent [xfs]
-xlog_recover_rui_commit_pass2 [xfs]
-xlog_recover_rud_commit_pass2 [xfs]
+xlog_recrui_commit_pass2 [xfs]
+xlog_recrud_commit_pass2 [xfs]
 xfs_rui_item_format [xfs]
 xfs_rmap_update_finish_item [xfs]
 xfs_rmap_update_create_done [xfs]
@@ -52765,44 +52765,44 @@ xlog_rseek_logrec_hdr [xfs]
 xlog_seek_logrec_hdr [xfs]
 xlog_bread_noalign [xfs]
 xlog_bwrite [xfs]
-xlog_recover_ophdr_to_trans [xfs]
+xlog_recophdr_to_trans [xfs]
 xlog_add_record [xfs]
-xlog_recover_add_item [xfs]
+xlog_recadd_item [xfs]
 xlog_find_verify_cycle [xfs]
 xlog_write_log_records [xfs]
 xlog_clear_stale_blocks [xfs]
-xlog_recover_clear_agi_bucket [xfs]
+xlog_recclear_agi_bucket [xfs]
 xlog_find_cycle_start.constprop.0 [xfs]
-xlog_recover_add_to_trans [xfs]
-xlog_recover_cancel_intents.isra.0 [xfs]
+xlog_recadd_to_trans [xfs]
+xlog_reccancel_intents.isra.0 [xfs]
 xlog_check_unmount_rec [xfs]
-xlog_recover_free_trans [xfs]
-xlog_recover_items_pass2 [xfs]
-xlog_recover_reorder_trans [xfs]
-xlog_recover_commit_trans [xfs]
-xlog_recover_add_to_cont_trans [xfs]
+xlog_recfree_trans [xfs]
+xlog_recitems_pass2 [xfs]
+xlog_recreorder_trans [xfs]
+xlog_reccommit_trans [xfs]
+xlog_recadd_to_cont_trans [xfs]
 xlog_recovery_process_trans [xfs]
-xlog_recover_process_ophdr [xfs]
-xlog_recover_process_intents [xfs]
+xlog_recprocess_ophdr [xfs]
+xlog_recprocess_intents [xfs]
 xlog_header_check_mount [xfs]
 xlog_find_verify_log_record [xfs]
 xlog_find_zeroed [xfs]
 xlog_find_head [xfs]
 xlog_header_check_recover [xfs]
-xlog_recover_process_data [xfs]
-xlog_recover_process [xfs]
+xlog_recprocess_data [xfs]
+xlog_recprocess [xfs]
 xlog_do_recovery_pass [xfs]
 xlog_verify_tail [xfs]
 xlog_verify_head [xfs]
 xlog_find_tail [xfs]
 xlog_do_log_recovery [xfs]
 xlog_do_recover [xfs]
-xlog_recover_release_intent [xfs]
-xlog_recover_iget [xfs]
+xlog_recrelease_intent [xfs]
+xlog_reciget [xfs]
 xlog_buf_readahead [xfs]
 xlog_recover [xfs]
-xlog_recover_finish [xfs]
-xlog_recover_cancel [xfs]
+xlog_recfinish [xfs]
+xlog_reccancel [xfs]
 xfs_trans_ail_cursor_clear.constprop.0 [xfs]
 xfs_trans_ail_cursor_init [xfs]
 xfs_ail_min_lsn [xfs]

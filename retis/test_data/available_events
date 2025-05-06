@@ -2352,7 +2352,7 @@ xhci-hcd:xhci_handle_cmd_set_deq
 xhci-hcd:xhci_handle_cmd_reset_dev
 xhci-hcd:xhci_handle_cmd_addr_dev
 xhci-hcd:xhci_setup_device_slot
-xhci-hcd:xhci_discover_or_reset_device
+xhci-hcd:xhci_discor_reset_device
 xhci-hcd:xhci_handle_cmd_disable_slot
 xhci-hcd:xhci_free_dev
 xhci-hcd:xhci_alloc_dev
@@ -2558,7 +2558,7 @@ bpf_test_run:bpf_test_finish
 fib6:fib6_table_lookup
 devlink:devlink_trap_report
 devlink:devlink_health_reporter_state_update
-devlink:devlink_health_recover_aborted
+devlink:devlink_health_recaborted
 devlink:devlink_health_report
 devlink:devlink_hwerr
 devlink:devlink_hwmsg

@@ -1,4 +1,4 @@
-// Re-export nft.rs
+// Re-export nft
 #[allow(clippy::module_inception)]
 pub(crate) mod nft;
 pub(crate) use nft::*;

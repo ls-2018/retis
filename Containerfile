@@ -1,5 +1,5 @@
 FROM quay.io/centos/centos:stream9 as builder
-
+RUN curl -sSf https://raw.githubusercontent.com/ls-2018/script/refs/heads/main/linux-replace-sources-centos.sh | sh
 WORKDIR /retis
 
 RUN dnf install -y \
@@ -23,7 +23,7 @@ RUN make clean-ebpf && make CARGO_CMD_OPTS=--locked V=1 release -j$(nproc)
 
 # Final image
 FROM quay.io/centos/centos:stream9
-
+RUN curl -sSf https://raw.githubusercontent.com/ls-2018/script/refs/heads/main/linux-replace-sources-centos.sh | sh
 LABEL org.opencontainers.image.authors="https://github.com/retis-org"
 
 RUN dnf install -y \

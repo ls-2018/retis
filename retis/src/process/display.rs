@@ -13,54 +13,6 @@ pub(crate) enum PrintEventFormat {
     Json,
 }
 
-/// Handles event individually and write to a `Write`.
-pub(crate) struct PrintEvent {
-    writer: Box<dyn Write>,
-    format: PrintEventFormat,
-}
-
-impl PrintEvent {
-    pub(crate) fn new(writer: Box<dyn Write>, format: PrintEventFormat) -> Self {
-        Self { writer, format }
-    }
-
-    /// Process events one by one (format & print).
-    pub(crate) fn process_one(&mut self, e: &Event) -> Result<()> {
-        match self.format {
-            PrintEventFormat::Text(ref mut format) => {
-                if let Some(common) = e.get_section::<StartupEvent>(SectionId::Startup) {
-                    format.monotonic_offset = Some(common.clock_monotonic_offset);
-                }
-
-                let mut event = format!("{}", e.display(format, &FormatterConf::new()));
-                if !event.is_empty() {
-                    event.push('\n');
-                    if format.multiline {
-                        event.push('\n');
-                    }
-                    if let Err(e) = self.writer.write_all(event.as_bytes()) {
-                        if e.kind() != ErrorKind::BrokenPipe {
-                            return Err(e.into());
-                        }
-                    }
-                }
-            }
-            PrintEventFormat::Json => {
-                let mut event = serde_json::to_vec(&e.to_json())?;
-                event.push(b'\n');
-                self.writer.write_all(&event)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Flush underlying writers.
-    pub(crate) fn flush(&mut self) -> Result<()> {
-        Ok(self.writer.flush()?)
-    }
-}
-
 /// Handles event series formatting and writing to a `Write`.
 pub(crate) struct PrintSeries {
     writer: Box<dyn Write>,
@@ -119,5 +71,52 @@ impl PrintSeries {
     /// Flush underlying writers.
     pub(crate) fn flush(&mut self) -> Result<()> {
         Ok(self.writer.flush()?)
+    }
+}
+
+/// Handles event individually and write to a `Write`.
+pub(crate) struct PrintEvent {
+    writer: Box<dyn Write>,
+    format: PrintEventFormat,
+}
+
+impl PrintEvent {
+    /// Process events one by one (format & print).
+    pub(crate) fn process_one(&mut self, e: &Event) -> Result<()> {
+        match self.format {
+            PrintEventFormat::Text(ref mut format) => {
+                if let Some(common) = e.get_section::<StartupEvent>(SectionId::Startup) {
+                    format.monotonic_offset = Some(common.clock_monotonic_offset);
+                }
+                let mut event = format!("{}", e.display(format, &FormatterConf::new()));
+                if !event.is_empty() {
+                    event.push('\n');
+                    if format.multiline {
+                        event.push('\n');
+                    }
+                    if let Err(e) = self.writer.write_all(event.as_bytes()) {
+                        if e.kind() != ErrorKind::BrokenPipe {
+                            return Err(e.into());
+                        }
+                    }
+                }
+            }
+            PrintEventFormat::Json => {
+                let mut event = serde_json::to_vec(&e.to_json())?;
+                event.push(b'\n');
+                self.writer.write_all(&event)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Flush underlying writers.
+    pub(crate) fn flush(&mut self) -> Result<()> {
+        Ok(self.writer.flush()?)
+    }
+
+    pub(crate) fn new(writer: Box<dyn Write>, format: PrintEventFormat) -> Self {
+        Self { writer, format }
     }
 }

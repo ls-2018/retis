@@ -116,266 +116,6 @@ pub(crate) struct Collectors {
 }
 
 impl Collectors {
-    pub(super) fn new() -> Result<Self> {
-        let factory = BpfEventsFactory::new()?;
-        let probes = ProbeManager::new()?;
-
-        Ok(Collectors {
-            collectors: HashMap::new(),
-            probes,
-            factory,
-            known_kernel_types: HashSet::new(),
-            run: Running::new(),
-            tracking_gc: None,
-            tracking_config_map: None,
-            events_factory: Arc::new(RetisEventsFactory::default()),
-            auto_mode: false,
-            mounted_debugfs: false,
-        })
-    }
-
-    /// Setup user defined input filter.
-    fn setup_filters(probes: &mut ProbeBuilderManager, collect: &Collect) -> Result<()> {
-        if let Some(f) = &collect.packet_filter {
-            // L2 filter MUST always succeed. Any failure means we need to bail.
-            let fb = FilterPacket::from_string_opt(f.to_string(), packet_filter_uapi::L2)?;
-
-            probes.register_filter(Filter::Packet(
-                packet_filter_uapi::L2,
-                BpfFilter(fb.to_bytes()?),
-            ))?;
-
-            let mut loaded_info = "L2";
-            // L3 filter is non mandatory.
-            let fb = if f.contains("ether[") {
-                debug!("Skipping L3 filter generation (ether[n:m] not allowed)");
-                FilterPacket::reject_filter()
-            } else {
-                match FilterPacket::from_string_opt(f.to_string(), packet_filter_uapi::L3) {
-                    Err(e) => {
-                        debug!("Skipping L3 filter generation ({e}).");
-                        FilterPacket::reject_filter()
-                    }
-                    Ok(f) => {
-                        loaded_info = "L2+L3";
-                        f
-                    }
-                }
-            };
-
-            probes.register_filter(Filter::Packet(
-                packet_filter_uapi::L3,
-                BpfFilter(fb.to_bytes()?),
-            ))?;
-
-            info!("{} packet filter(s) loaded", loaded_info);
-        }
-
-        if let Some(f) = &collect.meta_filter {
-            let fb =
-                FilterMeta::from_string(f.to_string()).map_err(|e| anyhow!("meta filter: {e}"))?;
-            probes.register_filter(Filter::Meta(fb))?;
-        }
-
-        Ok(())
-    }
-
-    /// Check prerequisites and cli arguments to ensure we can run.
-    pub(super) fn check(&mut self, collect: &Collect) -> Result<()> {
-        if collect.probe_stack && collect.packet_filter.is_none() && collect.meta_filter.is_none() {
-            bail!("Probe-stack mode requires filtering (--filter-packet and/or --filter-meta)");
-        }
-
-        // --allow-system-changes requires root.
-        if collect.allow_system_changes && !Uid::effective().is_root() {
-            bail!("Retis needs to be run as root when --allow-system-changes is used");
-        }
-
-        // Mount debugfs if not already mounted (and if we can). This is
-        // especially useful when running Retis in namespaces and containers.
-        if collect.allow_system_changes {
-            const DEBUGFS_TARGET: &str = "/sys/kernel/debug";
-
-            let err = mount(
-                None::<&std::path::Path>,
-                std::path::Path::new(DEBUGFS_TARGET),
-                Some("debugfs"),
-                MsFlags::empty(),
-                None::<&str>,
-            );
-
-            match err {
-                Ok(_) => {
-                    debug!("Mounted debugfs to {DEBUGFS_TARGET}");
-                    self.mounted_debugfs = true;
-                }
-                Err(errno) => match errno {
-                    Errno::EBUSY => debug!("Debugfs is already mounted to {DEBUGFS_TARGET}"),
-                    _ => warn!("Could not mount debugfs to {DEBUGFS_TARGET}: {errno}"),
-                },
-            }
-        }
-
-        // Check prerequisites.
-        collection_prerequisites()
-    }
-
-    /// Initialize all collectors by calling their `init()` function.
-    pub(super) fn init(&mut self, main_config: &MainConfig, collect: &Collect) -> Result<()> {
-        self.run.register_term_signals()?;
-
-        // Determine if auto mode is enabled:
-        // - No profile is used.
-        // - No collector was explicitly enabled.
-        self.auto_mode = main_config.profile.is_empty() && collect.collectors.is_none();
-
-        // Check if we need to report stack traces in the events.
-        if collect.stack || collect.probe_stack {
-            self.probes
-                .builder_mut()?
-                .set_probe_opt(probe::ProbeOption::StackTrace)?;
-        }
-
-        // Generate an initial event with the startup section.
-        self.events_factory.add_event(|event| {
-            event.insert_section(
-                SectionId::Startup,
-                Box::new(StartupEvent {
-                    retis_version: option_env!("RELEASE_VERSION")
-                        .unwrap_or("unspec")
-                        .to_string(),
-                    clock_monotonic_offset: monotonic_clock_offset()?,
-                }),
-            )
-        })?;
-
-        let collectors = match &collect.collectors {
-            Some(collectors) => collectors.iter().map(|c| c.as_ref()).collect::<Vec<&str>>(),
-            None => vec!["skb-tracking", "skb", "skb-drop", "ovs", "nft", "ct"],
-        };
-
-        // Try initializing all collectors.
-        for name in collectors {
-            let mut c: Box<dyn Collector> = match name {
-                "skb-tracking" => Box::new(SkbTrackingCollector::new()?),
-                "skb" => Box::new(SkbCollector::new()?),
-                "skb-drop" => Box::new(SkbDropCollector::new()?),
-                "ovs" => Box::new(OvsCollector::new()?),
-                "nft" => Box::new(NftCollector::new()?),
-                "ct" => Box::new(CtCollector::new()?),
-                _ => bail!("Unknown collector {name}"),
-            };
-
-            // Check if the collector can run (prerequisites are met).
-            if let Err(e) = c.can_run(collect) {
-                // Do not issue an error if the list of collectors was set by
-                // default, aka. auto-detect mode.
-                if self.auto_mode {
-                    debug!("Cannot run collector {name}: {e}");
-                    continue;
-                } else {
-                    bail!("Cannot run collector {name}: {e}");
-                }
-            }
-
-            if let Err(e) = c.init(
-                collect,
-                self.probes.builder_mut()?,
-                Arc::clone(&self.events_factory),
-            ) {
-                bail!("Could not initialize collector {name}: {e}");
-            }
-
-            // If the collector provides known kernel types, meaning we have a
-            // dynamic collector, retrieve and store them for later processing.
-            if let Some(kt) = c.known_kernel_types() {
-                kt.into_iter().for_each(|x| {
-                    self.known_kernel_types.insert(x.to_string());
-                });
-            }
-
-            self.collectors.insert(name.to_string(), c);
-        }
-
-        //  If auto-mode is used, print the list of collectors that were started.
-        if self.auto_mode {
-            info!(
-                "Collector(s) started: {}",
-                self.collectors
-                    .keys()
-                    .map(|k| k.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
-
-        // Initialize tracking & filters.
-        if !cfg!(test) && self.known_kernel_types.contains("struct sk_buff *") {
-            let (gc, map) = init_tracking(self.probes.builder_mut()?)?;
-            self.tracking_gc = Some(gc);
-            self.tracking_config_map = Some(map);
-        }
-        Self::setup_filters(self.probes.builder_mut()?, collect)?;
-
-        // If auto_mode is on and no probe is given, find the right set
-        // automagically.
-        if self.auto_mode && collect.probes.is_empty() {
-            let mut probes = if collect.probe_stack {
-                // If --probe-stack is used, use skb:consume_skb & skb:kfree_skb
-                // as a starting point (these should capture most if not all of
-                // the packets and help moving up the stack).
-                vec![
-                    Probe::raw_tracepoint(Symbol::from_name("skb:consume_skb")?)?,
-                    Probe::raw_tracepoint(Symbol::from_name("skb:kfree_skb")?)?,
-                ]
-            } else {
-                // By default dump packets after the device in ingress and
-                // before the device in egress; like AF_PACKET utilities.
-                vec![
-                    Probe::raw_tracepoint(Symbol::from_name("net:netif_receive_skb")?)?,
-                    Probe::raw_tracepoint(Symbol::from_name("net:net_dev_start_xmit")?)?,
-                ]
-            };
-
-            info!(
-                "No probe(s) given: using {}",
-                probes
-                    .iter()
-                    .map(|p| format!("{p}"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-            probes
-                .drain(..)
-                .try_for_each(|p| self.probes.builder_mut()?.register_probe(p))?;
-        }
-
-        // Setup user defined probes.
-        let filter = |symbol: &Symbol| {
-            // Skip probes not being compatible with the loaded collectors.
-            let ok = self.known_kernel_types.iter().any(|t| {
-                symbol
-                    .parameter_offset(t)
-                    .is_ok_and(|offset| offset.is_some())
-            });
-            if !ok {
-                info!(
-                    "No probe was attached to {} as no collector could retrieve data from it",
-                    symbol
-                );
-            }
-            ok
-        };
-        collect.probes.iter().try_for_each(|p| -> Result<()> {
-            probe_from_cli(p, filter)?
-                .drain(..)
-                .try_for_each(|p| self.probes.builder_mut()?.register_probe(p))?;
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
     /// Start the event retrieval for all collectors by calling
     /// their `start()` function.
     pub(super) fn start(&mut self, collect: &Collect) -> Result<()> {
@@ -432,8 +172,9 @@ impl Collectors {
         // replace combination. We could use a Cell<> instead but that would
         // complicate the use of self.probes (additional .get() calls) while
         // behaving the same.
+        // 安装探头并启动采集器。我们采用的是开放式编码的“取”与“替换”组合方式。我们也可以使用 Cell<> 而不是这种方式，但那样会使 self.probes 的使用（需要额外的.get() 调用）变得复杂，不过其行为却是一样的。
         let probes = std::mem::take(&mut self.probes);
-        let _ = std::mem::replace(&mut self.probes, probes.into_runtime()?);
+        let _ = std::mem::replace(&mut self.probes, probes.into_runtime()?); // 替换一些变量回默认值？？？？
 
         for (name, c) in &mut self.collectors {
             debug!("Starting collector {name}");
@@ -490,6 +231,7 @@ impl Collectors {
 
         // Write events to stdout if we don't write to a file (--out) or if
         // explicitly asked to (--print).
+        // 如果未将事件写入文件（使用了 --out 选项）或者明确要求将其输出到标准输出（使用了 --print 选项），则将事件写入标准输出。
         if collect.out.is_none() || collect.print {
             let format = DisplayFormat::new()
                 .multiline(collect.format == CliDisplayFormat::MultiLine)
@@ -580,5 +322,265 @@ impl Collectors {
         debug!("{} internal event(s) processed", iccount);
 
         self.stop()
+    }
+
+    pub(super) fn new() -> Result<Self> {
+        let factory = BpfEventsFactory::new()?;
+        let probes = ProbeManager::new()?;
+
+        Ok(Collectors {
+            collectors: HashMap::new(),
+            probes,
+            factory,
+            known_kernel_types: HashSet::new(),
+            run: Running::new(),
+            tracking_gc: None,
+            tracking_config_map: None,
+            events_factory: Arc::new(RetisEventsFactory::default()),
+            auto_mode: false,
+            mounted_debugfs: false,
+        })
+    }
+
+    /// Check prerequisites and cli arguments to ensure we can run.
+    pub(super) fn check(&mut self, collect: &Collect) -> Result<()> {
+        if collect.probe_stack && collect.packet_filter.is_none() && collect.meta_filter.is_none() {
+            bail!("Probe-stack mode requires filtering (--filter-packet and/or --filter-meta)");
+        }
+
+        // --allow-system-changes requires root.
+        if collect.allow_system_changes && !Uid::effective().is_root() {
+            bail!("Retis needs to be run as root when --allow-system-changes is used");
+        }
+
+        // Mount debugfs if not already mounted (and if we can). This is
+        // especially useful when running Retis in namespaces and containers.
+        if collect.allow_system_changes {
+            const DEBUGFS_TARGET: &str = "/sys/kernel/debug";
+
+            let err = mount(
+                None::<&std::path::Path>,
+                std::path::Path::new(DEBUGFS_TARGET),
+                Some("debugfs"),
+                MsFlags::empty(),
+                None::<&str>,
+            );
+
+            match err {
+                Ok(_) => {
+                    debug!("Mounted debugfs to {DEBUGFS_TARGET}");
+                    self.mounted_debugfs = true;
+                }
+                Err(errno) => match errno {
+                    Errno::EBUSY => debug!("Debugfs is already mounted to {DEBUGFS_TARGET}"),
+                    _ => warn!("Could not mount debugfs to {DEBUGFS_TARGET}: {errno}"),
+                },
+            }
+        }
+
+        // Check prerequisites.
+        collection_prerequisites()
+    }
+
+    /// Setup user defined input filter.
+    fn setup_filters(probes: &mut ProbeBuilderManager, collect: &Collect) -> Result<()> {
+        if let Some(f) = &collect.packet_filter {
+            // todo
+            // L2 过滤器必须始终成功运行。任何失败的情况都意味着我们需要终止操作。
+            let fb = FilterPacket::from_string_opt(f.to_string(), packet_filter_uapi::L2)?;
+
+            probes.register_filter(Filter::Packet(
+                packet_filter_uapi::L2,
+                BpfFilter(fb.to_bytes()?),
+            ))?;
+
+            let mut loaded_info = "L2";
+            // L3 filter is non mandatory.
+            let fb = if f.contains("ether[") {
+                debug!("Skipping L3 filter generation (ether[n:m] not allowed)");
+                FilterPacket::reject_filter()
+            } else {
+                match FilterPacket::from_string_opt(f.to_string(), packet_filter_uapi::L3) {
+                    Err(e) => {
+                        debug!("Skipping L3 filter generation ({e}).");
+                        FilterPacket::reject_filter()
+                    }
+                    Ok(f) => {
+                        loaded_info = "L2+L3";
+                        f
+                    }
+                }
+            };
+
+            probes.register_filter(Filter::Packet(
+                packet_filter_uapi::L3,
+                BpfFilter(fb.to_bytes()?),
+            ))?;
+
+            info!("{} packet filter(s) loaded", loaded_info);
+        }
+
+        if let Some(f) = &collect.meta_filter {
+            // todo
+            let fb =
+                FilterMeta::from_string(f.to_string()).map_err(|e| anyhow!("meta filter: {e}"))?;
+            probes.register_filter(Filter::Meta(fb))?;
+        }
+
+        Ok(())
+    }
+
+    /// Initialize all collectors by calling their `init()` function.
+    pub(super) fn init(&mut self, main_config: &MainConfig, collect: &Collect) -> Result<()> {
+        self.run.register_term_signals()?;
+
+        // Determine if auto mode is enabled:
+        // - No profile is used.
+        // - No collector was explicitly enabled.
+        self.auto_mode = main_config.profile.is_empty() && collect.collectors.is_none();
+
+        // Check if we need to report stack traces in the events.
+        if collect.stack || collect.probe_stack {
+            self.probes
+                .builder_mut()?
+                .set_probe_opt(probe::ProbeOption::StackTrace)?;
+        }
+
+        // 在启动阶段生成一个初始事件
+        self.events_factory.add_event(|event| {
+            event.insert_section(
+                SectionId::Startup,
+                Box::new(StartupEvent {
+                    retis_version: option_env!("RELEASE_VERSION")
+                        .unwrap_or("unspec")
+                        .to_string(),
+                    clock_monotonic_offset: monotonic_clock_offset()?,
+                }),
+            )
+        })?;
+
+        let collectors = match &collect.collectors {
+            Some(collectors) => collectors.iter().map(|c| c.as_ref()).collect::<Vec<&str>>(),
+            None => vec!["skb-tracking", "skb", "skb-drop", "ovs", "nft", "ct"],
+        };
+
+        // Try initializing all collectors.
+        for name in collectors {
+            let mut c: Box<dyn Collector> = match name {
+                "skb-tracking" => Box::new(SkbTrackingCollector::new()?),
+                "skb" => Box::new(SkbCollector::new()?),
+                "skb-drop" => Box::new(SkbDropCollector::new()?),
+                "ovs" => Box::new(OvsCollector::new()?),
+                "nft" => Box::new(NftCollector::new()?),
+                "ct" => Box::new(CtCollector::new()?),
+                _ => bail!("Unknown collector {name}"),
+            };
+
+            // Check if the collector can run (prerequisites are met).
+            if let Err(e) = c.can_run(collect) {
+                // Do not issue an error if the list of collectors was set by
+                // default, aka. auto-detect mode.
+                if self.auto_mode {
+                    debug!("Cannot run collector {name}: {e}");
+                    continue;
+                } else {
+                    bail!("Cannot run collector {name}: {e}");
+                }
+            }
+
+            if let Err(e) = c.init(
+                collect,
+                self.probes.builder_mut()?,
+                Arc::clone(&self.events_factory),
+            ) {
+                bail!("Could not initialize collector {name}: {e}");
+            }
+
+            // If the collector provides known kernel types, meaning we have a
+            // dynamic collector, retrieve and store them for later processing.
+            if let Some(kt) = c.known_kernel_types() {
+                kt.into_iter().for_each(|x| {
+                    self.known_kernel_types.insert(x.to_string());
+                });
+            }
+
+            self.collectors.insert(name.to_string(), c);
+        }
+
+        //  If auto-mode is used, print the list of collectors that were started.
+        if self.auto_mode {
+            info!(
+                "Collector(s) started: {}",
+                self.collectors
+                    .keys()
+                    .map(|k| k.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+
+        // Initialize tracking & filters.
+        if !cfg!(test) && self.known_kernel_types.contains("struct sk_buff *") {
+            let (gc, map) = init_tracking(self.probes.builder_mut()?)?;
+            self.tracking_gc = Some(gc);
+            self.tracking_config_map = Some(map);
+        }
+        Self::setup_filters(self.probes.builder_mut()?, collect)?;
+
+        // If auto_mode is on and no probe is given, find the right set
+        // automagically.
+        if self.auto_mode && collect.probes.is_empty() {
+            let mut probes = if collect.probe_stack {
+                // If --probe-stack is used, use skb:consume_skb & skb:kfree_skb
+                // as a starting point (这些应该能够捕获大部分（如果不是全部的话）的数据包，并有助于提升整个网络架构的性能。).
+                vec![
+                    Probe::raw_tracepoint(Symbol::from_name("skb:consume_skb")?)?,
+                    Probe::raw_tracepoint(Symbol::from_name("skb:kfree_skb")?)?,
+                ]
+            } else {
+                // 默认情况下，在设备入站时丢弃数据包，在设备出站时保留数据包；就像 AF_PACKET 工具那样。
+                vec![
+                    Probe::raw_tracepoint(Symbol::from_name("net:netif_receive_skb")?)?,
+                    Probe::raw_tracepoint(Symbol::from_name("net:net_dev_start_xmit")?)?,
+                ]
+            };
+
+            info!(
+                "No probe(s) given: using {}",
+                probes
+                    .iter()
+                    .map(|p| format!("{p}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            probes
+                .drain(..)
+                .try_for_each(|p| self.probes.builder_mut()?.register_probe(p))?;
+        }
+
+        // Setup user defined probes.
+        let filter = |symbol: &Symbol| {
+            // Skip probes not being compatible with the loaded collectors.
+            let ok = self.known_kernel_types.iter().any(|t| {
+                symbol
+                    .parameter_offset(t)
+                    .is_ok_and(|offset| offset.is_some())
+            });
+            if !ok {
+                info!(
+                    "No probe was attached to {} as no collector could retrieve data from it",
+                    symbol
+                );
+            }
+            ok
+        };
+        collect.probes.iter().try_for_each(|p| -> Result<()> {
+            probe_from_cli(p, filter)?
+                .drain(..)
+                .try_for_each(|p| self.probes.builder_mut()?.register_probe(p))?;
+            Ok(())
+        })?;
+
+        Ok(())
     }
 }

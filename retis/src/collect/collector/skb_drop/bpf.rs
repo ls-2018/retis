@@ -109,7 +109,7 @@ impl SkbDropEventFactory {
         let raw_val = raw_val as u32;
 
         // Retrieve the sub-system drop reason definition, if any.
-        let subsys_id = (raw_val >> SKB_DROP_REASON_SUBSYS_SHIFT) as u16;
+        let subsys_id = (raw_val >> SKB_DROP_REASON_SUBSYS_SHIFT) as u16;// 16
         let subsys = match self.reasons.get(&subsys_id) {
             Some(subsys) => subsys,
             // Handle the None case but really that should not happen, because

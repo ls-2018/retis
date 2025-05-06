@@ -18,14 +18,6 @@ use crate::{
 pub(crate) struct SkbTrackingCollector {}
 
 impl Collector for SkbTrackingCollector {
-    fn new() -> Result<Self> {
-        Ok(Self::default())
-    }
-
-    fn known_kernel_types(&self) -> Option<Vec<&'static str>> {
-        Some(vec!["struct sk_buff *"])
-    }
-
     fn init(
         &mut self,
         _: &Collect,
@@ -33,6 +25,14 @@ impl Collector for SkbTrackingCollector {
         _: Arc<RetisEventsFactory>,
     ) -> Result<()> {
         probes.register_kernel_hook(Hook::from(tracking_hook::DATA))
+    }
+
+    fn new() -> Result<Self> {
+        Ok(Self::default())
+    }
+
+    fn known_kernel_types(&self) -> Option<Vec<&'static str>> {
+        Some(vec!["struct sk_buff *"])
     }
 }
 

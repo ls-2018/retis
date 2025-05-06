@@ -104,8 +104,7 @@ defaults to \"retis.data\"."
     #[arg(
         long,
         default_value = "false",
-        help = "Include stack traces in the kernel events. The stack entries are limited and
-not released. If exhausted, no stack trace will be included."
+        help = "在内核事件中包含堆栈跟踪。堆栈条目是有限的且不会释放。如果耗尽，将不再包含堆栈跟踪。"
     )]
     pub(super) stack: bool,
     #[arg(
@@ -191,7 +190,7 @@ impl SubCommandParserRunner for Collect {
         let mut collectors = Collectors::new()?;
 
         collectors.check(self)?;
-        collectors.init(main_config, self)?;
+        collectors.init(main_config, self)?; // 注册一些用户提供的func
 
         collectors.start(self)?;
 

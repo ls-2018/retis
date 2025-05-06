@@ -35,10 +35,6 @@ pub(crate) struct KernelProbe {
 }
 
 impl KernelProbe {
-    pub(crate) fn new(symbol: Symbol) -> Result<Self> {
-        Ok(KernelProbe { symbol })
-    }
-
     /// Generate the probe BPF configuration from a list of options.
     pub(crate) fn gen_config(&self, options: &[ProbeOption]) -> Result<retis_probe_config> {
         let mut config = inspect_symbol(&self.symbol)?;
@@ -52,6 +48,10 @@ impl KernelProbe {
         });
 
         Ok(config)
+    }
+
+    pub(crate) fn new(symbol: Symbol) -> Result<Self> {
+        Ok(KernelProbe { symbol })
     }
 
     /// Generate the probe BPF configuration from a list of options.

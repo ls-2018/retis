@@ -15,7 +15,7 @@
 //!   attaching to kfree_skb, as the drop reason is otherwise lost, but it is
 //!   acceptable as a fallback (mainly for older kernels).
 
-// Re-export collect.rs
+// Re-export collect
 #[allow(clippy::module_inception)]
 pub(crate) mod collect;
 pub(crate) use collect::*;
